@@ -24,7 +24,7 @@ namespace MouthfeelAPIv2.Controllers
         public async Task<ActionResult<IEnumerable<Flavor>>> GetTextures()
         {
             // TODO: Maybe convert from Db model to regular model
-            return await _context.Flavors.ToListAsync();
+            return await _context.Flavors.OrderBy(f => f.Name).ToListAsync();
         }
     }
 }

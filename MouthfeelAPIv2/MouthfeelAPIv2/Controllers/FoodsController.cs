@@ -28,7 +28,9 @@ namespace MouthfeelAPIv2.Controllers
         public async Task<ActionResult<IEnumerable<Food>>> GetFoods()
         {
             // TODO: Maybe convert from Db model to regular model
-            return await _context.Foods.ToListAsync();
+            // TODO: Like and dislike operations
+            // TODO: Possible convert int ids to guids
+            return await _context.Foods.OrderBy(f => f.Name).ToListAsync();
         }
 
         [HttpGet("{id}")]
@@ -47,9 +49,7 @@ namespace MouthfeelAPIv2.Controllers
             var misc = await miscService.GetMiscellaneousVotesByFood(id);
 
             if (food == null)
-            {
                 return NotFound();
-            }
 
             return new FoodResponse(food, flavors, textures, misc);
         }
