@@ -15,12 +15,15 @@ namespace MouthfeelAPIv2.Services
 {
     public interface IFoodsService
     {
+        Task<FoodResponse> GetFoodDetails(int id);
         Task AddFood(CreateFoodRequest request);
     }
 
     public class FoodsService : IFoodsService
     {
         private readonly MouthfeelContext _mouthfeel;
+
+        private readonly IIngredientsService _ingredients;
 
         private readonly IFlavorsService _flavors;
 
@@ -30,15 +33,31 @@ namespace MouthfeelAPIv2.Services
 
         public FoodsService(
             MouthfeelContext mouthfeel,
+            IIngredientsService ingredients,
             IFlavorsService flavors,
             IMiscellaneousService misc,
             ITexturesService textures
         )
         {
             _mouthfeel = mouthfeel;
+            _ingredients = ingredients;
             _flavors = flavors;
             _misc = misc;
             _textures = textures;
+        }
+
+        public async Task<FoodResponse> GetFoodDetails(int id)
+        {
+            var food = await _mouthfeel.Foods.FindAsync(id);
+            var ingredients = await _ingredients.GetIngredients(id);
+            var textures = await _textures.GetTextureVotes(id);
+            var flavors = await _flavors.GetFlavorVotes(id);
+            var misc = await _misc.GetMiscellaneousVotes(id);
+
+            if (food == null)
+                throw new ErrorResponse(HttpStatusCode.NotFound, ErrorMessages.FoodNotFound);
+
+            return new FoodResponse(food, ingredients, flavors, textures, misc);
         }
 
         public async Task AddFood(CreateFoodRequest request)

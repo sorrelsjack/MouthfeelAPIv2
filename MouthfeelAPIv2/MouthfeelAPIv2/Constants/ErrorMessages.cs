@@ -7,6 +7,7 @@ namespace MouthfeelAPIv2.Constants
 {
     public static class ErrorMessages
     {
+        public static string FoodNotFound = "Food does not exist under the provided id.";
         public static string FlavorDoesNotExist = VotableAttributeDoesNotExist("flavors");
 
         public static string TextureDoesNotExist = VotableAttributeDoesNotExist("textures");

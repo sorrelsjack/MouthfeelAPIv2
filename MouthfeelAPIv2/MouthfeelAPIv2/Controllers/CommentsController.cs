@@ -7,10 +7,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace MouthfeelAPIv2.Controllers
 {
-    // TODO: Register, login
-    [Route("api/users")]
+    [Route("api/comments")]
     [ApiController]
-    public class UsersController : ControllerBase
+    public class CommentsController : ControllerBase
     {
     }
 }

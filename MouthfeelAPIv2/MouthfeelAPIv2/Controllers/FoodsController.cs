@@ -34,26 +34,24 @@ namespace MouthfeelAPIv2.Controllers
             return await _context.Foods.OrderBy(f => f.Name).ToListAsync();
         }
 
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<Food>>> SearchFoods
+        (
+        )
+        {
+            // Have param called query. Query can take array of strings: ingredients, attributes, name
+            // If name, search on food name
+            // If ingredients, query ingredients table, get id, then take this to food_compositions, then get food ids from matching records
+            // If attributes, query attributes tables, get ids of attributes, then go to vote tables, then get food ids from matching records
+            return null;
+        }
+
         [HttpGet("{id}")]
         public async Task<ActionResult<FoodResponse>> GetFood
         (
-            [FromServices] ITexturesService texturesService, 
-            [FromServices] IFlavorsService flavorsService, 
-            [FromServices] IMiscellaneousService miscService,
+            [FromServices] IFoodsService foodsService,
             int id
-        )
-        {
-            // TODO: Make some changes so that flavor and misc are like textures
-            var food = await _context.Foods.FindAsync(id);
-            var textures = await texturesService.GetTextureVotes(id);
-            var flavors = await flavorsService.GetFlavorVotes(id);
-            var misc = await miscService.GetMiscellaneousVotes(id);
-
-            if (food == null)
-                return NotFound();
-
-            return new FoodResponse(food, flavors, textures, misc);
-        }
+        ) => await foodsService.GetFoodDetails(id);
 
         // PUT: api/foods/5
         // To protect from overposting attacks, enable the specific properties you want to bind to, for
@@ -118,9 +116,6 @@ namespace MouthfeelAPIv2.Controllers
         [HttpPost]
         public async Task<ActionResult<Food>> PostFood(
             [FromServices] IFoodsService foodsService,
-            [FromServices] IFlavorsService flavorsService,
-            [FromServices] IMiscellaneousService miscService,
-            [FromServices] ITexturesService texturesService,
             [FromBody] CreateFoodRequest food
         )
         {
