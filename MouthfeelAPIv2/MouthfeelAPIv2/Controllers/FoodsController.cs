@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using MouthfeelAPIv2.DbModels;
 using MouthfeelAPIv2.Extensions;
 using MouthfeelAPIv2.Models;
+using MouthfeelAPIv2.Models.Foods;
 using MouthfeelAPIv2.Services;
 
 namespace MouthfeelAPIv2.Controllers
@@ -45,8 +46,8 @@ namespace MouthfeelAPIv2.Controllers
             // TODO: Make some changes so that flavor and misc are like textures
             var food = await _context.Foods.FindAsync(id);
             var textures = await texturesService.GetTextureVotes(id);
-            var flavors = await flavorsService.GetFlavorVotesByFood(id);
-            var misc = await miscService.GetMiscellaneousVotesByFood(id);
+            var flavors = await flavorsService.GetFlavorVotes(id);
+            var misc = await miscService.GetMiscellaneousVotes(id);
 
             if (food == null)
                 return NotFound();
@@ -86,6 +87,19 @@ namespace MouthfeelAPIv2.Controllers
             return NoContent();
         }
 
+        // TODO: Return list of foods marked as "Liked"
+        [HttpGet("liked")]
+        public async Task<ActionResult<IEnumerable<Food>>> GetLikedFoods() 
+        {
+            return null;
+        }
+
+        [HttpGet("disliked")]
+        public async Task<ActionResult<IEnumerable<Food>>> GetDislikedFoods()
+        {
+            return null;
+        }
+
         // TODO: Should get a food id, then single flavor object should be received and concatenated onto extant flavor list
         [HttpPost("{id}/flavors")]
         public async Task<ActionResult<Food>> AddFoodFlavor(int id, Food food)
@@ -102,10 +116,17 @@ namespace MouthfeelAPIv2.Controllers
         // To protect from overposting attacks, enable the specific properties you want to bind to, for
         // more details, see https://go.microsoft.com/fwlink/?linkid=2123754.
         [HttpPost]
-        public async Task<ActionResult<Food>> PostFood([FromServices] IFoodsService foodsService, Food food)
+        public async Task<ActionResult<Food>> PostFood(
+            [FromServices] IFoodsService foodsService,
+            [FromServices] IFlavorsService flavorsService,
+            [FromServices] IMiscellaneousService miscService,
+            [FromServices] ITexturesService texturesService,
+            [FromBody] CreateFoodRequest food
+        )
         {
-            // I guess I made it so that you have to submit an image URL if you want to make a new food. Maybe change it later
             if (food.Name.IsNullOrWhitespace()) return BadRequest("A name must be entered.");
+            if (food.ImageUrl.IsNullOrWhitespace()) return BadRequest("An image URL must be associated with a food.");
+
             await foodsService.AddFood(food);
             return NoContent();
         }

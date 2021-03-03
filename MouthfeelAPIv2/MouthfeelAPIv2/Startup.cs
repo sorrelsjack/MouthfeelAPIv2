@@ -4,7 +4,9 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,6 +17,7 @@ using Microsoft.Extensions.Logging;
 using MouthfeelAPIv2.DbModels;
 using MouthfeelAPIv2.Models;
 using MouthfeelAPIv2.Services;
+using Newtonsoft.Json;
 
 namespace MouthfeelAPIv2
 {
@@ -49,6 +52,20 @@ namespace MouthfeelAPIv2
             app.UseRouting();
 
             app.UseAuthorization();
+
+            app.UseExceptionHandler(new ExceptionHandlerOptions 
+            {
+                ExceptionHandler = context =>
+                {
+                    var response = context.Response;
+                    var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+                    var ex = exception as ErrorResponse;
+                    response.StatusCode = (int)ex.ErrorCode;
+                    var body = ex.ErrorMessage;
+
+                    return response.WriteAsync(JsonConvert.SerializeObject(new { ErrorCode = response.StatusCode, Message = body }, Formatting.Indented));
+                }
+            });
 
             app.UseEndpoints(endpoints =>
             {
