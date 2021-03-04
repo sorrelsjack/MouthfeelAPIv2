@@ -18,6 +18,8 @@ namespace MouthfeelAPIv2.Services
         Task<IEnumerable<VotableAttribute>> GetFlavorVotes(int? foodId);
 
         Task ManageFlavorVote(int flavorId, int userId, int foodId, VoteState voteState);
+
+        Task<IEnumerable<Flavor>> SearchFlavors(string query);
     }
 
     public class FlavorsService : IFlavorsService
@@ -72,5 +74,8 @@ namespace MouthfeelAPIv2.Services
                 await _mouthfeel.SaveChangesAsync();
             }
         }
+
+        public async Task<IEnumerable<Flavor>> SearchFlavors(string query) => (await _mouthfeel.Flavors.ToListAsync()).Where(f => f.Name == query);
+
     }
 }

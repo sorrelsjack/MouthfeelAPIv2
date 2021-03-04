@@ -2,6 +2,7 @@
 using MouthfeelAPIv2.Constants;
 using MouthfeelAPIv2.DbModels;
 using MouthfeelAPIv2.Enums;
+using MouthfeelAPIv2.Extensions;
 using MouthfeelAPIv2.Models;
 using MouthfeelAPIv2.Models.Foods;
 using System;
@@ -10,12 +11,14 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using System.Web.Http;
+using FoodSearchType = MouthfeelAPIv2.Constants.FoodSearchType;
 
 namespace MouthfeelAPIv2.Services
 {
     public interface IFoodsService
     {
         Task<FoodResponse> GetFoodDetails(int id);
+        Task<IEnumerable<FoodResponse>> SearchFoods(string query, IEnumerable<string> searchFilter);
         Task AddFood(CreateFoodRequest request);
     }
 
@@ -46,6 +49,8 @@ namespace MouthfeelAPIv2.Services
             _textures = textures;
         }
 
+        // TODO: Maybe return liked / disliked status in this
+        // TODO: Maybe return comments in this
         public async Task<FoodResponse> GetFoodDetails(int id)
         {
             var food = await _mouthfeel.Foods.FindAsync(id);
@@ -58,6 +63,53 @@ namespace MouthfeelAPIv2.Services
                 throw new ErrorResponse(HttpStatusCode.NotFound, ErrorMessages.FoodNotFound);
 
             return new FoodResponse(food, ingredients, flavors, textures, misc);
+        }
+
+        public async Task<IEnumerable<FoodResponse>> SearchFoods(string query, IEnumerable<string> searchFilter)
+        {
+            var foods = new Food[] { };
+            var foodsWithDetails = new FoodResponse[] { };
+
+            // If attributes, query attributes tables, get ids of attributes, then go to vote tables, then get food ids from matching records
+            if (searchFilter.Contains(FoodSearchType.Attributes))
+            {
+                var flavors = await _flavors.SearchFlavors(query);
+                var f = flavors
+                    .Join(_mouthfeel.FlavorVotes, flavor => flavor.Id, vote => vote.FlavorId, (flavor, vote) => new { flavor.Id, flavor.Name, vote.FoodId })
+                    .Join(_mouthfeel.Foods, fv => fv.FoodId, food => food.Id, (fv, food) => new Food { Id = food.Id, Name = food.Name, ImageUrl = food.ImageUrl });
+
+                var textures = await _textures.SearchTextures(query);
+                var t = textures
+                    .Join(_mouthfeel.TextureVotes, texture => texture.Id, vote => vote.TextureId, (texture, vote) => new { texture.Id, texture.Name, vote.FoodId })
+                    .Join(_mouthfeel.Foods, tv => tv.FoodId, food => food.Id, (tv, food) => new Food { Id = food.Id, Name = food.Name, ImageUrl = food.ImageUrl });
+
+                var misc = await _misc.SearchMiscellaneous(query);
+                var m = misc
+                    .Join(_mouthfeel.MiscellaneousVotes, mis => mis.Id, vote => vote.MiscId, (mis, vote) => new { mis.Id, mis.Name, vote.FoodId })
+                    .Join(_mouthfeel.Foods, mv => mv.FoodId, food => food.Id, (mv, food) => new Food { Id = food.Id, Name = food.Name, ImageUrl = food.ImageUrl });
+
+                foods = foods.Concat(f).Concat(t).Concat(m).ToArray();
+            }
+
+            if (searchFilter.Contains(FoodSearchType.Ingredients))
+            {
+                var ingredients = await _ingredients.SearchIngredients(query);
+                var compositions = (await _mouthfeel.FoodCompositions.ToListAsync()).Where(c => ingredients.Any(i => i.Id == c.IngredientId));
+                var matchingFoods = (await _mouthfeel.Foods.ToListAsync()).Where(f => compositions.Any(c => c.FoodId == f.Id));
+                foods = foods.Concat(matchingFoods).ToArray();
+            }
+
+            if (searchFilter.Contains(FoodSearchType.Name))
+            {
+                var byName = _mouthfeel.Foods.Where(f => f.Name == query);
+                foods = foods.Concat(byName).ToArray();
+            }
+
+            foods = foods.DistinctBy(f => f.Name).ToArray();
+            var detailsTask = foods.Select(f => GetFoodDetails(f.Id));
+            foodsWithDetails = await Task.WhenAll(detailsTask);
+ 
+            return foodsWithDetails;
         }
 
         public async Task AddFood(CreateFoodRequest request)

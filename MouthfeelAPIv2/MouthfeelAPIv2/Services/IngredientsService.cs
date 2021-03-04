@@ -11,6 +11,7 @@ namespace MouthfeelAPIv2.Services
     public interface IIngredientsService
     {
         Task<IEnumerable<FoodIngredient>> GetIngredients(int foodId);
+        Task<IEnumerable<Ingredient>> SearchIngredients(string query);
     }
 
     public class IngredientsService : IIngredientsService
@@ -34,5 +35,7 @@ namespace MouthfeelAPIv2.Services
                     Quantity = composition.Quantity
                 });
         }
+
+        public async Task<IEnumerable<Ingredient>> SearchIngredients(string query) => _mouthfeel.Ingredients.Where(i => i.Name == query);
     }
 }

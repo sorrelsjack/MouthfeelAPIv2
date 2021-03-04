@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using MouthfeelAPIv2.Constants;
 using MouthfeelAPIv2.DbModels;
 using MouthfeelAPIv2.Extensions;
 using MouthfeelAPIv2.Models;
@@ -34,16 +35,19 @@ namespace MouthfeelAPIv2.Controllers
             return await _context.Foods.OrderBy(f => f.Name).ToListAsync();
         }
 
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<Food>>> SearchFoods
+        [HttpGet("search")]
+        public async Task<ActionResult<IEnumerable<FoodResponse>>> SearchFoods
         (
+            [FromServices] IFoodsService foodsService,
+            [FromQuery] string query,
+            [FromQuery] string filter
         )
         {
+            var searchTypes = FoodSearchType.GetAllTypes();
+            var searchFilter = filter.Split(",").Where(f => FoodSearchType.GetAllTypes().Contains(f.ToLower())).ToList();
+
             // Have param called query. Query can take array of strings: ingredients, attributes, name
-            // If name, search on food name
-            // If ingredients, query ingredients table, get id, then take this to food_compositions, then get food ids from matching records
-            // If attributes, query attributes tables, get ids of attributes, then go to vote tables, then get food ids from matching records
-            return null;
+            return (await foodsService.SearchFoods(query, searchFilter)).ToList();
         }
 
         [HttpGet("{id}")]

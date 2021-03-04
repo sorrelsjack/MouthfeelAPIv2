@@ -17,6 +17,8 @@ namespace MouthfeelAPIv2.Services
     {
         Task<IEnumerable<VotableAttribute>> GetMiscellaneousVotes(int? foodId);
         Task ManageMiscellaneousVote(int miscId, int userId, int foodId, VoteState voteState);
+
+        Task<IEnumerable<Miscellaneous>> SearchMiscellaneous(string query);
     }
 
     public class MiscellaneousService : IMiscellaneousService
@@ -71,5 +73,7 @@ namespace MouthfeelAPIv2.Services
                 _mouthfeel.SaveChanges();
             }
         }
+
+        public async Task<IEnumerable<Miscellaneous>> SearchMiscellaneous(string query) => (await _mouthfeel.Miscellaneous.ToListAsync()).Where(m => m.Name == query);
     }
 }

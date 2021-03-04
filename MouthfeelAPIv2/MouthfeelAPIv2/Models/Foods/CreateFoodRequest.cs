@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 
 namespace MouthfeelAPIv2.Models.Foods
 {
+    // TODO: Brainstorm what the UI should look like to add ingredients. Then, add Ingredients back to this model
     public class CreateFoodRequest
     {
         public string Name { get; set; }

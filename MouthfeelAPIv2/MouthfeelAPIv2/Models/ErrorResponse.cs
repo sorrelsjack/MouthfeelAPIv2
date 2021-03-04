@@ -8,7 +8,7 @@ namespace MouthfeelAPIv2.Models
 {
     public class ErrorResponse : Exception
     {
-        public HttpStatusCode ErrorCode { get; set; }
+        public HttpStatusCode? ErrorCode { get; set; }
         public string ErrorMessage { get; set; }
 
         public ErrorResponse(HttpStatusCode errorCode, string errorMessage)

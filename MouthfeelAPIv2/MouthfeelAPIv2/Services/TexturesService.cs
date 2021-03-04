@@ -17,6 +17,7 @@ namespace MouthfeelAPIv2.Services
     {
         Task<IEnumerable<VotableAttribute>> GetTextureVotes(int? foodId);
         Task ManageTextureVote(int textureId, int userId, int foodId, VoteState voteState);
+        Task<IEnumerable<Texture>> SearchTextures(string query);
     }
 
     public class TexturesService : ITexturesService
@@ -71,5 +72,7 @@ namespace MouthfeelAPIv2.Services
                 _mouthfeel.SaveChanges();
             }
         }
+
+        public async Task<IEnumerable<Texture>> SearchTextures(string query) => (await _mouthfeel.Textures.ToListAsync()).Where(t => t.Name == query);
     }
 }

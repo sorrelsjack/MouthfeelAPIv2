@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics;
@@ -32,7 +33,7 @@ namespace MouthfeelAPIv2
 
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddDbContext<MouthfeelContext>(opt => opt.UseSqlServer(Configuration["DatabaseConnectionString"]));
+            services.AddDbContext<MouthfeelContext>(opt => opt.UseSqlServer(Configuration["DatabaseConnectionString"]), ServiceLifetime.Transient);
             services.AddScoped<IFoodsService, FoodsService>();
             services.AddScoped<IIngredientsService, IngredientsService>();
             services.AddScoped<IFlavorsService, FlavorsService>();
@@ -61,7 +62,7 @@ namespace MouthfeelAPIv2
                     var response = context.Response;
                     var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
                     var ex = exception as ErrorResponse;
-                    response.StatusCode = (int)ex.ErrorCode;
+                    response.StatusCode = ex.ErrorCode != null ? (int)ex.ErrorCode : (int)HttpStatusCode.InternalServerError;
                     var body = ex.ErrorMessage;
 
                     return response.WriteAsync(JsonConvert.SerializeObject(new { ErrorCode = response.StatusCode, Message = body }, Formatting.Indented));
