@@ -39,6 +39,8 @@ namespace MouthfeelAPIv2
             services.AddScoped<IFlavorsService, FlavorsService>();
             services.AddScoped<ITexturesService, TexturesService>();
             services.AddScoped<IMiscellaneousService, MiscellaneousService>();
+            services.AddScoped<ICommentsService, CommentsService>();
+            services.AddScoped<IUsersService, UsersService>();
             services.AddControllers();
         }
 

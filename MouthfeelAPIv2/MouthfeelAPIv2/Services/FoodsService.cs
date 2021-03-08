@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using System.Web.Http;
 using FoodSearchType = MouthfeelAPIv2.Constants.FoodSearchType;
 
+// TODO: Maybe convert votes in DB back to tiny int? Then do a conversion between bytes and ints
 namespace MouthfeelAPIv2.Services
 {
     public interface IFoodsService
@@ -20,6 +21,11 @@ namespace MouthfeelAPIv2.Services
         Task<FoodResponse> GetFoodDetails(int id);
         Task<IEnumerable<FoodResponse>> SearchFoods(string query, IEnumerable<string> searchFilter);
         Task AddFood(CreateFoodRequest request);
+        Task<int> GetFoodSentiment(int id);
+        Task<IEnumerable<FoodResponse>> GetLikedFoods();
+        Task<IEnumerable<FoodResponse>> GetDislikedFoods();
+
+        Task ManageFoodSentiment(int foodId, int userId, Sentiment newSentiment);
     }
 
     public class FoodsService : IFoodsService
@@ -54,6 +60,7 @@ namespace MouthfeelAPIv2.Services
         public async Task<FoodResponse> GetFoodDetails(int id)
         {
             var food = await _mouthfeel.Foods.FindAsync(id);
+            var sentiment = await GetFoodSentiment(id);
             var ingredients = await _ingredients.GetIngredients(id);
             var textures = await _textures.GetTextureVotes(id);
             var flavors = await _flavors.GetFlavorVotes(id);
@@ -62,7 +69,7 @@ namespace MouthfeelAPIv2.Services
             if (food == null)
                 throw new ErrorResponse(HttpStatusCode.NotFound, ErrorMessages.FoodNotFound);
 
-            return new FoodResponse(food, ingredients, flavors, textures, misc);
+            return new FoodResponse(food, sentiment, ingredients, flavors, textures, misc);
         }
 
         public async Task<IEnumerable<FoodResponse>> SearchFoods(string query, IEnumerable<string> searchFilter)
@@ -165,6 +172,50 @@ namespace MouthfeelAPIv2.Services
 
             foreach (var texture in textureTasks)
                 await texture;
+        }
+
+        // TODO: Do this by user
+        public async Task<int> GetFoodSentiment(int id) => _mouthfeel.FoodSentiments.Where(s => s.FoodId == id)?.FirstOrDefault()?.Sentiment ?? 0;
+
+        private async Task<IEnumerable<FoodResponse>> GetFoodsBySentiment(Sentiment sentiment)
+        {
+            var foods = await _mouthfeel.Foods.ToListAsync();
+            var f = foods
+                .Join(_mouthfeel.FoodSentiments, food => food.Id, sentiment => sentiment.FoodId, (food, sentiment) => new { food.Id, food.Name, food.ImageUrl, sentiment.Sentiment })
+                .Where(f => f.Sentiment == (int)sentiment);
+
+            var detailsTask = f.Select(f => GetFoodDetails(f.Id));
+            var foodWithDetails = await Task.WhenAll(detailsTask);
+
+            return foodWithDetails;
+        }
+
+        // TODO: Do this by user
+        public async Task<IEnumerable<FoodResponse>> GetLikedFoods()
+            => await GetFoodsBySentiment(Sentiment.Liked);
+
+        // TODO: Do this by user
+        public async Task<IEnumerable<FoodResponse>> GetDislikedFoods()
+            => await GetFoodsBySentiment(Sentiment.Disliked);
+
+        // TODO: Do this by user
+        public async Task ManageFoodSentiment(int foodId, int userId, Sentiment newSentiment)
+        {
+            var sentiment = new FoodSentiment { FoodId = foodId, UserId = userId, Sentiment = (int)newSentiment };
+            var existingSentimentFromUser = _mouthfeel.FoodSentiments.FirstOrDefault(s => s.FoodId == foodId && s.UserId == userId);
+
+            if (existingSentimentFromUser != null)
+            {
+                if (newSentiment == Sentiment.Neutral)
+                    _mouthfeel.FoodSentiments.Remove(existingSentimentFromUser);
+                else
+                    existingSentimentFromUser.Sentiment = (int)newSentiment;
+            }
+
+            else
+                _mouthfeel.FoodSentiments.Add(sentiment);
+
+            await _mouthfeel.SaveChangesAsync();
         }
     }
 }

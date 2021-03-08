@@ -12,6 +12,9 @@ namespace MouthfeelAPIv2.Models
         public int Id { get; set; }
         public string Name { get; set; }
         public string ImageUrl { get; set; }
+
+        // TODO: Maybe make an enum for this
+        public int Sentiment { get; set; }
         // TODO: Incorporate this in the constructor, but make it optional
         public IEnumerable<FoodIngredient> Ingredients { get; set; }
         public IEnumerable<VotableAttribute> Flavors { get; set;}
@@ -19,7 +22,8 @@ namespace MouthfeelAPIv2.Models
         public IEnumerable<VotableAttribute> Miscellaneous { get; set; }
 
         public FoodResponse(
-            Food food, 
+            Food food,
+            int sentiment,
             IEnumerable<FoodIngredient> ingredients, 
             IEnumerable<VotableAttribute> flavors, 
             IEnumerable<VotableAttribute> textures, 
@@ -29,6 +33,7 @@ namespace MouthfeelAPIv2.Models
             Id = food.Id;
             Name = food.Name;
             ImageUrl = food.ImageUrl;
+            Sentiment = sentiment;
             Ingredients = ingredients;
             Textures = textures;
             Flavors = flavors;

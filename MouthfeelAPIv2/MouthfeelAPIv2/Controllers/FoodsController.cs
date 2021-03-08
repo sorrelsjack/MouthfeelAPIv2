@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MouthfeelAPIv2.Constants;
 using MouthfeelAPIv2.DbModels;
+using MouthfeelAPIv2.Enums;
 using MouthfeelAPIv2.Extensions;
 using MouthfeelAPIv2.Models;
 using MouthfeelAPIv2.Models.Foods;
@@ -91,15 +92,37 @@ namespace MouthfeelAPIv2.Controllers
 
         // TODO: Return list of foods marked as "Liked"
         [HttpGet("liked")]
-        public async Task<ActionResult<IEnumerable<Food>>> GetLikedFoods() 
-        {
-            return null;
-        }
+        public async Task<ActionResult<IEnumerable<FoodResponse>>> GetLikedFoods
+        (
+            [FromServices] IFoodsService foodsService
+        ) => (await foodsService.GetLikedFoods()).ToList();
 
         [HttpGet("disliked")]
-        public async Task<ActionResult<IEnumerable<Food>>> GetDislikedFoods()
+        public async Task<ActionResult<IEnumerable<FoodResponse>>> GetDislikedFoods
+        (
+            [FromServices] IFoodsService foodsService
+        ) => (await foodsService.GetDislikedFoods()).ToList();
+
+        [HttpPost("liked")]
+        public async Task<ActionResult> AddLikedFood
+        (
+            [FromServices] IFoodsService foodsService,
+            [FromBody] ManageFoodSentimentRequest request
+        ) 
         {
-            return null;
+            await foodsService.ManageFoodSentiment(request.FoodId, 1, Sentiment.Liked);
+            return NoContent();
+        }
+
+        [HttpPost("disliked")]
+        public async Task<ActionResult> AddDislikedFood
+        (
+            [FromServices] IFoodsService foodsService,
+            [FromBody] ManageFoodSentimentRequest request
+        )
+        {
+            await foodsService.ManageFoodSentiment(request.FoodId, 1, Sentiment.Disliked);
+            return NoContent();
         }
 
         // TODO: Should get a food id, then single flavor object should be received and concatenated onto extant flavor list
