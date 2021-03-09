@@ -13,6 +13,7 @@ namespace MouthfeelAPIv2.DbModels
 
         }
 
+        public DbSet<Comment> Comments { get; set; }
         public DbSet<Food> Foods { get; set; }
         public DbSet<Ingredient> Ingredients { get; set; }
         public DbSet<FoodComposition> FoodCompositions { get; set; }
@@ -23,5 +24,6 @@ namespace MouthfeelAPIv2.DbModels
         public DbSet<MiscellaneousVote> MiscellaneousVotes { get; set; }
         public DbSet<Texture> Textures { get; set; }
         public DbSet<TextureVote> TextureVotes { get; set; }
+        public DbSet<User> Users { get; set; }
     }
 }

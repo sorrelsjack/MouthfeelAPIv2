@@ -90,7 +90,6 @@ namespace MouthfeelAPIv2.Controllers
             return NoContent();
         }
 
-        // TODO: Return list of foods marked as "Liked"
         [HttpGet("liked")]
         public async Task<ActionResult<IEnumerable<FoodResponse>>> GetLikedFoods
         (
