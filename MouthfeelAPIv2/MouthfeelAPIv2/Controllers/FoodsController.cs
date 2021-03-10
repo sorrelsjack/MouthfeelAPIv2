@@ -145,28 +145,37 @@ namespace MouthfeelAPIv2.Controllers
             return NoContent();
         }
 
-        // TODO: Should get a food id, then single flavor object should be received and concatenated onto extant flavor list
         [HttpPost("{id}/flavors")]
-        public async Task<ActionResult<Food>> AddFoodFlavor(int id, Food food)
+        public async Task<ActionResult<Food>> AddOrUpdateFoodFlavor
+        (
+            [FromServices] IFoodsService foodsService,
+            [FromBody] AddOrUpdateVotableAttributeRequest request
+        ) 
         {
-            if (id != food.Id)
-            {
-                return BadRequest();
-            }
+            await foodsService.AddOrUpdateAttribute(request, IdentityHelper.GetIdFromUser(User), VotableAttributeType.Flavor);
+            return NoContent();
+        } 
 
+        [HttpPost("{id}/textures")]
+        public async Task<ActionResult<Food>> AddOrUpdateFoodTexture
+        (
+            [FromServices] IFoodsService foodsService,
+            [FromBody] AddOrUpdateVotableAttributeRequest request
+        )
+        {
+            await foodsService.AddOrUpdateAttribute(request, IdentityHelper.GetIdFromUser(User), VotableAttributeType.Texture);
             return NoContent();
         }
 
-        [HttpPost("{id}/textures")]
-        public async Task<ActionResult<Food>> AddFoodTexture(int id, Food food)
-        {
-            return null;
-        }
-
         [HttpPost("{id}/miscellaneous")]
-        public async Task<ActionResult<Food>> AddFoodMiscellaneousAttribute(int id, Food food)
+        public async Task<ActionResult<Food>> AddOrUpdateFoodMiscellaneousAttribute
+        (
+            [FromServices] IFoodsService foodsService,
+            [FromBody] AddOrUpdateVotableAttributeRequest request
+        )
         {
-            return null;
+            await foodsService.AddOrUpdateAttribute(request, IdentityHelper.GetIdFromUser(User), VotableAttributeType.Miscellaneous);
+            return NoContent();
         }
     }
 }

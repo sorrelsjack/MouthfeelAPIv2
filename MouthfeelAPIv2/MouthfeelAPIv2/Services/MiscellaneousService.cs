@@ -16,7 +16,7 @@ namespace MouthfeelAPIv2.Services
     public interface IMiscellaneousService
     {
         Task<IEnumerable<VotableAttribute>> GetMiscellaneousVotes(int? foodId);
-        Task ManageMiscellaneousVote(int miscId, int userId, int foodId, VoteState voteState);
+        Task ManageMiscellaneousVote(int miscId, int userId, int foodId);
 
         Task<IEnumerable<Miscellaneous>> SearchMiscellaneous(string query);
     }
@@ -45,7 +45,7 @@ namespace MouthfeelAPIv2.Services
                 }).DistinctBy(m => m.Id);
         }
 
-        public async Task ManageMiscellaneousVote(int miscVote, int userId, int foodId, VoteState voteState)
+        public async Task ManageMiscellaneousVote(int miscVote, int userId, int foodId)
         {
             var miscVotes = await _mouthfeel.MiscellaneousVotes.ToListAsync();
             var misc = await _mouthfeel.Miscellaneous.ToListAsync();
@@ -70,8 +70,9 @@ namespace MouthfeelAPIv2.Services
                     FoodId = foodId,
                     Vote = 1
                 });
-                _mouthfeel.SaveChanges();
             }
+
+            await _mouthfeel.SaveChangesAsync();
         }
 
         public async Task<IEnumerable<Miscellaneous>> SearchMiscellaneous(string query) => (await _mouthfeel.Miscellaneous.ToListAsync()).Where(m => m.Name == query);

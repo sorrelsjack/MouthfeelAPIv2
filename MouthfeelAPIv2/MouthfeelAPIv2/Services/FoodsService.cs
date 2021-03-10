@@ -28,6 +28,7 @@ namespace MouthfeelAPIv2.Services
         Task<IEnumerable<FoodResponse>> GetFoodsToTry(int userId);
         Task<bool> GetFoodToTryStatus(int foodId, int userId);
         Task AddOrRemoveFoodToTry(int foodId, int userId);
+        Task AddOrUpdateAttribute(AddOrUpdateVotableAttributeRequest request, int userId, VotableAttributeType type);
     }
 
     public class FoodsService : IFoodsService
@@ -160,9 +161,9 @@ namespace MouthfeelAPIv2.Services
 
             var foodId = (await _mouthfeel.Foods.FirstOrDefaultAsync(f => f.Name == food.Name)).Id;
 
-            var flavorTasks = request.Flavors?.Select(f => _flavors.ManageFlavorVote(f, userId, foodId, VoteState.Up));
-            var miscTasks = request.Miscellaneous?.Select(m => _misc.ManageMiscellaneousVote(m, userId, foodId, VoteState.Up));
-            var textureTasks = request.Textures?.Select(t => _textures.ManageTextureVote(t, userId, foodId, VoteState.Up));
+            var flavorTasks = request.Flavors?.Select(f => _flavors.ManageFlavorVote(f, userId, foodId));
+            var miscTasks = request.Miscellaneous?.Select(m => _misc.ManageMiscellaneousVote(m, userId, foodId));
+            var textureTasks = request.Textures?.Select(t => _textures.ManageTextureVote(t, userId, foodId));
 
             // TODO: Probably need error handling here
             foreach (var flavor in flavorTasks)
@@ -245,6 +246,22 @@ namespace MouthfeelAPIv2.Services
             });
 
             await _mouthfeel.SaveChangesAsync();
+        }
+
+        public async Task AddOrUpdateAttribute(AddOrUpdateVotableAttributeRequest request, int userId, VotableAttributeType type)
+        {
+            switch (type)
+            {
+                case VotableAttributeType.Flavor:
+                    await _flavors.ManageFlavorVote(request.AttributeId, userId, request.FoodId);
+                    break;
+                case VotableAttributeType.Texture:
+                    await _textures.ManageTextureVote(request.AttributeId, userId, request.FoodId);
+                    break;
+                case VotableAttributeType.Miscellaneous:
+                    await _misc.ManageMiscellaneousVote(request.AttributeId, userId, request.FoodId);
+                    break;
+            }
         }
     }
 }

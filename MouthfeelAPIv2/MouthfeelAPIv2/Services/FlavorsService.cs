@@ -17,7 +17,7 @@ namespace MouthfeelAPIv2.Services
     {
         Task<IEnumerable<VotableAttribute>> GetFlavorVotes(int? foodId);
 
-        Task ManageFlavorVote(int flavorId, int userId, int foodId, VoteState voteState);
+        Task ManageFlavorVote(int flavorId, int userId, int foodId);
 
         Task<IEnumerable<Flavor>> SearchFlavors(string query);
     }
@@ -46,7 +46,7 @@ namespace MouthfeelAPIv2.Services
                 }).DistinctBy(f => f.Id);
         }
 
-        public async Task ManageFlavorVote(int flavorId, int userId, int foodId, VoteState voteState) // TODO: Maybe make this vote an enum
+        public async Task ManageFlavorVote(int flavorId, int userId, int foodId)
         {
             var flavorVotes = await _mouthfeel.FlavorVotes.ToListAsync();
             var flavors = await _mouthfeel.Flavors.ToListAsync();
@@ -71,8 +71,9 @@ namespace MouthfeelAPIv2.Services
                     FoodId = foodId, 
                     Vote = 1 
                 });
-                await _mouthfeel.SaveChangesAsync();
             }
+
+            await _mouthfeel.SaveChangesAsync();
         }
 
         public async Task<IEnumerable<Flavor>> SearchFlavors(string query) => (await _mouthfeel.Flavors.ToListAsync()).Where(f => f.Name == query);
