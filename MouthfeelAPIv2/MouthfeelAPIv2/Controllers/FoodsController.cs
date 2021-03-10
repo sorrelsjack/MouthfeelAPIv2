@@ -2,7 +2,10 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -10,12 +13,14 @@ using MouthfeelAPIv2.Constants;
 using MouthfeelAPIv2.DbModels;
 using MouthfeelAPIv2.Enums;
 using MouthfeelAPIv2.Extensions;
+using MouthfeelAPIv2.Helpers;
 using MouthfeelAPIv2.Models;
 using MouthfeelAPIv2.Models.Foods;
 using MouthfeelAPIv2.Services;
 
 namespace MouthfeelAPIv2.Controllers
 {
+    [Authorize]
     [Route("api/foods")]
     [ApiController]
     public class FoodsController : ControllerBase
@@ -27,12 +32,10 @@ namespace MouthfeelAPIv2.Controllers
             _context = context;
         }
 
+        [AllowAnonymous]
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Food>>> GetFoods()
         {
-            // TODO: Maybe convert from Db model to regular model
-            // TODO: Like and dislike operations
-            // TODO: Possible convert int ids to guids
             return await _context.Foods.OrderBy(f => f.Name).ToListAsync();
         }
 
@@ -47,8 +50,7 @@ namespace MouthfeelAPIv2.Controllers
             var searchTypes = FoodSearchType.GetAllTypes();
             var searchFilter = filter.Split(",").Where(f => FoodSearchType.GetAllTypes().Contains(f.ToLower())).ToList();
 
-            // Have param called query. Query can take array of strings: ingredients, attributes, name
-            return (await foodsService.SearchFoods(query, searchFilter)).ToList();
+            return (await foodsService.SearchFoods(query, searchFilter, IdentityHelper.GetIdFromUser(User))).ToList();
         }
 
         [HttpGet("{id}")]
@@ -56,51 +58,19 @@ namespace MouthfeelAPIv2.Controllers
         (
             [FromServices] IFoodsService foodsService,
             int id
-        ) => await foodsService.GetFoodDetails(id);
-
-        // PUT: api/foods/5
-        // To protect from overposting attacks, enable the specific properties you want to bind to, for
-        // more details, see https://go.microsoft.com/fwlink/?linkid=2123754.
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutFood(int id, Food food)
-        {
-            if (id != food.Id)
-            {
-                return BadRequest();
-            }
-
-            _context.Entry(food).State = EntityState.Modified;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!FoodExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-
-            return NoContent();
-        }
+        ) => await foodsService.GetFoodDetails(id, IdentityHelper.GetIdFromUser(User));
 
         [HttpGet("liked")]
         public async Task<ActionResult<IEnumerable<FoodResponse>>> GetLikedFoods
         (
             [FromServices] IFoodsService foodsService
-        ) => (await foodsService.GetLikedFoods()).ToList();
+        ) => (await foodsService.GetLikedFoods(IdentityHelper.GetIdFromUser(User))).ToList();
 
         [HttpGet("disliked")]
         public async Task<ActionResult<IEnumerable<FoodResponse>>> GetDislikedFoods
         (
             [FromServices] IFoodsService foodsService
-        ) => (await foodsService.GetDislikedFoods()).ToList();
+        ) => (await foodsService.GetDislikedFoods(IdentityHelper.GetIdFromUser(User))).ToList();
 
         [HttpPost("liked")]
         public async Task<ActionResult> AddLikedFood
@@ -109,7 +79,7 @@ namespace MouthfeelAPIv2.Controllers
             [FromBody] ManageFoodSentimentRequest request
         ) 
         {
-            await foodsService.ManageFoodSentiment(request.FoodId, 1, Sentiment.Liked);
+            await foodsService.ManageFoodSentiment(request.FoodId, IdentityHelper.GetIdFromUser(User), Sentiment.Liked);
             return NoContent();
         }
 
@@ -120,7 +90,58 @@ namespace MouthfeelAPIv2.Controllers
             [FromBody] ManageFoodSentimentRequest request
         )
         {
-            await foodsService.ManageFoodSentiment(request.FoodId, 1, Sentiment.Disliked);
+            await foodsService.ManageFoodSentiment(request.FoodId, IdentityHelper.GetIdFromUser(User), Sentiment.Disliked);
+            return NoContent();
+        }
+
+        // TODO; Recommended
+        [HttpGet("recommended")]
+        public async Task<ActionResult> GetRecommendedFoods
+        (
+            [FromServices] IFoodsService foodsService
+        )
+        {
+            return null;
+        }
+
+        [HttpGet("to-try")]
+        public async Task<ActionResult<IEnumerable<FoodResponse>>> GetFoodsToTry
+        (
+            [FromServices] IFoodsService foodsService
+        ) => (await foodsService.GetFoodsToTry(IdentityHelper.GetIdFromUser(User))).ToList();
+
+        [HttpPost("to-try")]
+        public async Task<ActionResult> AddFoodToTry
+        (
+            [FromServices] IFoodsService foodsService,
+            [FromBody] FoodToTry food
+        )
+        {
+            await foodsService.AddOrRemoveFoodToTry(food.FoodId, food.UserId);
+            return NoContent();
+        }
+
+        [HttpDelete("to-try")]
+        public async Task<ActionResult> DeleteFoodToTry
+        (
+            [FromServices] IFoodsService foodsService,
+            [FromBody] FoodToTry food
+        )
+        {
+            await foodsService.AddOrRemoveFoodToTry(food.FoodId, food.UserId);
+            return NoContent();
+        }
+
+        [HttpPost]
+        public async Task<ActionResult<Food>> PostFood(
+            [FromServices] IFoodsService foodsService,
+            [FromBody] CreateFoodRequest food
+        )
+        {
+            if (food.Name.IsNullOrWhitespace()) return BadRequest("A name must be entered.");
+            if (food.ImageUrl.IsNullOrWhitespace()) return BadRequest("An image URL must be associated with a food.");
+
+            await foodsService.AddFood(food, IdentityHelper.GetIdFromUser(User));
             return NoContent();
         }
 
@@ -136,41 +157,16 @@ namespace MouthfeelAPIv2.Controllers
             return NoContent();
         }
 
-        // POST: api/foods
-        // To protect from overposting attacks, enable the specific properties you want to bind to, for
-        // more details, see https://go.microsoft.com/fwlink/?linkid=2123754.
-        [HttpPost]
-        public async Task<ActionResult<Food>> PostFood(
-            [FromServices] IFoodsService foodsService,
-            [FromBody] CreateFoodRequest food
-        )
+        [HttpPost("{id}/textures")]
+        public async Task<ActionResult<Food>> AddFoodTexture(int id, Food food)
         {
-            if (food.Name.IsNullOrWhitespace()) return BadRequest("A name must be entered.");
-            if (food.ImageUrl.IsNullOrWhitespace()) return BadRequest("An image URL must be associated with a food.");
-
-            await foodsService.AddFood(food);
-            return NoContent();
+            return null;
         }
 
-        // DELETE: api/foods/5
-        [HttpDelete("{id}")]
-        public async Task<ActionResult<Food>> DeleteFood(int id)
+        [HttpPost("{id}/miscellaneous")]
+        public async Task<ActionResult<Food>> AddFoodMiscellaneousAttribute(int id, Food food)
         {
-            var food = await _context.Foods.FindAsync(id);
-            if (food == null)
-            {
-                return NotFound();
-            }
-
-            _context.Foods.Remove(food);
-            await _context.SaveChangesAsync();
-
-            return food;
-        }
-
-        private bool FoodExists(int id)
-        {
-            return _context.Foods.Any(e => e.Id == id);
+            return null;
         }
     }
 }

@@ -1,10 +1,14 @@
 ﻿using MouthfeelAPIv2.Constants;
 using MouthfeelAPIv2.DbModels;
+using MouthfeelAPIv2.Extensions;
+using MouthfeelAPIv2.Helpers;
 using MouthfeelAPIv2.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace MouthfeelAPIv2.Services
@@ -13,7 +17,7 @@ namespace MouthfeelAPIv2.Services
     {
         Task RegisterUser(CreateUserRequest request);
 
-        Task Authenticate();
+        Task<AuthenticateUserResponse> AuthenticateUser(AuthenticateUserRequest request);
     }
 
     public class UsersService : IUsersService
@@ -33,11 +37,14 @@ namespace MouthfeelAPIv2.Services
             var emailIsRegistered = _mouthfeel.Users.Any(u => u.Email == request.Email);
             if (emailIsRegistered) throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.EmailIsRegistered);
 
-            // TODO: Change this to incorporate hash; find out how to store PWs in a DB
+            if (request.Username.Length > 50) throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.UsernameTooLong);
+
+            if (!request.Email.IsValidEmail()) throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.EmailIsNotAValidStructure);
+
             _mouthfeel.Users.Add(new User 
             { 
                 Username = request.Username,
-                Password = request.Password,
+                Password = request.Password.MakePasswordHash(),
                 Email = request.Email,
                 DateTimeJoined = DateTime.UtcNow
             });
@@ -45,9 +52,17 @@ namespace MouthfeelAPIv2.Services
             await _mouthfeel.SaveChangesAsync();
         }
 
-        public async Task Authenticate()
+        public async Task<AuthenticateUserResponse> AuthenticateUser(AuthenticateUserRequest request)
         {
+            var user = _mouthfeel.Users.FirstOrDefault(u => u.Username == request.Username);
 
+            if (request == null || request.Username.IsNullOrWhitespace() || request.Password.IsNullOrWhitespace()) throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.MissingLoginDetails);
+            if (user == null) throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.UserNotFound);
+            if (user.Password != request.Password.MakePasswordHash()) throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.IncorrectPassword);
+
+            var token = TokenHelper.GenerateToken(user);
+
+            return new AuthenticateUserResponse(user, token);
         }
     }
 }

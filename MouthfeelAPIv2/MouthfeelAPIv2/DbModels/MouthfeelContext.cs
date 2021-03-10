@@ -14,7 +14,9 @@ namespace MouthfeelAPIv2.DbModels
         }
 
         public DbSet<Comment> Comments { get; set; }
+        public DbSet<CommentVote> CommentVotes { get; set; }
         public DbSet<Food> Foods { get; set; }
+        public DbSet<FoodToTry> FoodsToTry { get; set; }
         public DbSet<Ingredient> Ingredients { get; set; }
         public DbSet<FoodComposition> FoodCompositions { get; set; }
         public DbSet<FoodSentiment> FoodSentiments { get; set; }

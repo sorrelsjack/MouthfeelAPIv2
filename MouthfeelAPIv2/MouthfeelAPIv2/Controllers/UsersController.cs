@@ -4,12 +4,12 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using MouthfeelAPIv2.Extensions;
 using MouthfeelAPIv2.Models;
 using MouthfeelAPIv2.Services;
 
 namespace MouthfeelAPIv2.Controllers
 {
-    // TODO: login
     [Route("api/users")]
     [ApiController]
     public class UsersController : ControllerBase
@@ -26,13 +26,13 @@ namespace MouthfeelAPIv2.Controllers
         }
 
         [HttpPost("authenticate")]
-        public async Task<ActionResult> Authenticate
+        public async Task<ActionResult<AuthenticateUserResponse>> Authenticate
         (
-            [FromServices] IUsersService usersService
+            [FromServices] IUsersService usersService,
+            [FromBody] AuthenticateUserRequest request
         )
         {
-            await usersService.Authenticate();
-            return NoContent();
+            return await usersService.AuthenticateUser(request);
         }
     }
 }

@@ -8,7 +8,7 @@ namespace MouthfeelAPIv2.Enums
     public enum VoteState
     {
         Down = -1,
-        Remove = 0,
+        Neutral = 0,
         Up = 1
     }
 }

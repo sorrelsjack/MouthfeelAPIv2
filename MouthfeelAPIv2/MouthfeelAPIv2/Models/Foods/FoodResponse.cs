@@ -15,6 +15,7 @@ namespace MouthfeelAPIv2.Models
 
         // TODO: Maybe make an enum for this
         public int Sentiment { get; set; }
+        public bool ToTry { get; set; }
         // TODO: Incorporate this in the constructor, but make it optional
         public IEnumerable<FoodIngredient> Ingredients { get; set; }
         public IEnumerable<VotableAttribute> Flavors { get; set;}
@@ -24,6 +25,7 @@ namespace MouthfeelAPIv2.Models
         public FoodResponse(
             Food food,
             int sentiment,
+            bool toTry,
             IEnumerable<FoodIngredient> ingredients, 
             IEnumerable<VotableAttribute> flavors, 
             IEnumerable<VotableAttribute> textures, 
@@ -34,6 +36,7 @@ namespace MouthfeelAPIv2.Models
             Name = food.Name;
             ImageUrl = food.ImageUrl;
             Sentiment = sentiment;
+            ToTry = toTry;
             Ingredients = ingredients;
             Textures = textures;
             Flavors = flavors;

@@ -18,14 +18,16 @@ namespace MouthfeelAPIv2.Services
 {
     public interface IFoodsService
     {
-        Task<FoodResponse> GetFoodDetails(int id);
-        Task<IEnumerable<FoodResponse>> SearchFoods(string query, IEnumerable<string> searchFilter);
-        Task AddFood(CreateFoodRequest request);
-        Task<int> GetFoodSentiment(int id);
-        Task<IEnumerable<FoodResponse>> GetLikedFoods();
-        Task<IEnumerable<FoodResponse>> GetDislikedFoods();
-
+        Task<FoodResponse> GetFoodDetails(int foodId, int userId);
+        Task<IEnumerable<FoodResponse>> SearchFoods(string query, IEnumerable<string> searchFilter, int userId);
+        Task AddFood(CreateFoodRequest request, int userId);
+        Task<int> GetFoodSentiment(int foodId, int userId);
+        Task<IEnumerable<FoodResponse>> GetLikedFoods(int userId);
+        Task<IEnumerable<FoodResponse>> GetDislikedFoods(int userId);
         Task ManageFoodSentiment(int foodId, int userId, Sentiment newSentiment);
+        Task<IEnumerable<FoodResponse>> GetFoodsToTry(int userId);
+        Task<bool> GetFoodToTryStatus(int foodId, int userId);
+        Task AddOrRemoveFoodToTry(int foodId, int userId);
     }
 
     public class FoodsService : IFoodsService
@@ -55,24 +57,26 @@ namespace MouthfeelAPIv2.Services
             _textures = textures;
         }
 
-        // TODO: Maybe return liked / disliked status in this
-        // TODO: Maybe return comments in this
-        public async Task<FoodResponse> GetFoodDetails(int id)
+        public async Task<FoodResponse> GetFoodDetails(int foodId, int userId)
         {
-            var food = await _mouthfeel.Foods.FindAsync(id);
-            var sentiment = await GetFoodSentiment(id);
-            var ingredients = await _ingredients.GetIngredients(id);
-            var textures = await _textures.GetTextureVotes(id);
-            var flavors = await _flavors.GetFlavorVotes(id);
-            var misc = await _misc.GetMiscellaneousVotes(id);
+            var food = await _mouthfeel.Foods.FindAsync(foodId);
+            var sentiment = await GetFoodSentiment(foodId, userId);
+            var toTry = await GetFoodToTryStatus(foodId, userId);
+            var ingredients = await _ingredients.GetIngredients(foodId);
+            var textures = await _textures.GetTextureVotes(foodId);
+            var flavors = await _flavors.GetFlavorVotes(foodId);
+            var misc = await _misc.GetMiscellaneousVotes(foodId);
 
             if (food == null)
                 throw new ErrorResponse(HttpStatusCode.NotFound, ErrorMessages.FoodNotFound);
 
-            return new FoodResponse(food, sentiment, ingredients, flavors, textures, misc);
+            return new FoodResponse(food, sentiment, toTry, ingredients, flavors, textures, misc);
         }
 
-        public async Task<IEnumerable<FoodResponse>> SearchFoods(string query, IEnumerable<string> searchFilter)
+        private async Task<IEnumerable<FoodResponse>> GetManyFoodDetails(IEnumerable<int> foodIds, int userId) =>
+            await Task.WhenAll(foodIds.Select(f => GetFoodDetails(f, userId)));
+
+        public async Task<IEnumerable<FoodResponse>> SearchFoods(string query, IEnumerable<string> searchFilter, int userId)
         {
             var foods = new Food[] { };
             var foodsWithDetails = new FoodResponse[] { };
@@ -113,13 +117,11 @@ namespace MouthfeelAPIv2.Services
             }
 
             foods = foods.DistinctBy(f => f.Name).ToArray();
-            var detailsTask = foods.Select(f => GetFoodDetails(f.Id));
-            foodsWithDetails = await Task.WhenAll(detailsTask);
- 
-            return foodsWithDetails;
+
+            return await GetManyFoodDetails(foods.Select(f => f.Id), userId);
         }
 
-        public async Task AddFood(CreateFoodRequest request)
+        public async Task AddFood(CreateFoodRequest request, int userId)
         {
             var foods = await _mouthfeel.Foods.ToListAsync();
 
@@ -158,10 +160,9 @@ namespace MouthfeelAPIv2.Services
 
             var foodId = (await _mouthfeel.Foods.FirstOrDefaultAsync(f => f.Name == food.Name)).Id;
 
-            // TODO: Change userId later
-            var flavorTasks = request.Flavors?.Select(f => _flavors.ManageFlavorVote(f, 1, foodId, VoteState.Up));
-            var miscTasks = request.Miscellaneous?.Select(m => _misc.ManageMiscellaneousVote(m, 1, foodId, VoteState.Up));
-            var textureTasks = request.Textures?.Select(t => _textures.ManageTextureVote(t, 1, foodId, VoteState.Up));
+            var flavorTasks = request.Flavors?.Select(f => _flavors.ManageFlavorVote(f, userId, foodId, VoteState.Up));
+            var miscTasks = request.Miscellaneous?.Select(m => _misc.ManageMiscellaneousVote(m, userId, foodId, VoteState.Up));
+            var textureTasks = request.Textures?.Select(t => _textures.ManageTextureVote(t, userId, foodId, VoteState.Up));
 
             // TODO: Probably need error handling here
             foreach (var flavor in flavorTasks)
@@ -174,31 +175,32 @@ namespace MouthfeelAPIv2.Services
                 await texture;
         }
 
-        // TODO: Do this by user
-        public async Task<int> GetFoodSentiment(int id) => _mouthfeel.FoodSentiments.Where(s => s.FoodId == id)?.FirstOrDefault()?.Sentiment ?? 0;
+        public async Task<int> GetFoodSentiment(int foodId, int userId) 
+            => (await _mouthfeel.FoodSentiments.ToListAsync())
+                .Where(s => s.UserId == userId)
+                .Where(s => s.FoodId == foodId)?
+                .FirstOrDefault()?.Sentiment ?? 0;
 
-        private async Task<IEnumerable<FoodResponse>> GetFoodsBySentiment(Sentiment sentiment)
+        private async Task<IEnumerable<FoodResponse>> GetFoodsBySentiment(int userId, Sentiment sentiment)
         {
             var foods = await _mouthfeel.Foods.ToListAsync();
             var f = foods
-                .Join(_mouthfeel.FoodSentiments, food => food.Id, sentiment => sentiment.FoodId, (food, sentiment) => new { food.Id, food.Name, food.ImageUrl, sentiment.Sentiment })
+                .Join(_mouthfeel.FoodSentiments, food => food.Id, sentiment => sentiment.FoodId, (food, sentiment) => new { food.Id, food.Name, food.ImageUrl, sentiment.UserId, sentiment.Sentiment })
+                .Where(f => f.UserId == userId)
                 .Where(f => f.Sentiment == (int)sentiment);
 
-            var detailsTask = f.Select(f => GetFoodDetails(f.Id));
+            var detailsTask = f.Select(f => GetFoodDetails(f.Id, userId));
             var foodWithDetails = await Task.WhenAll(detailsTask);
 
             return foodWithDetails;
         }
 
-        // TODO: Do this by user
-        public async Task<IEnumerable<FoodResponse>> GetLikedFoods()
-            => await GetFoodsBySentiment(Sentiment.Liked);
+        public async Task<IEnumerable<FoodResponse>> GetLikedFoods(int userId)
+            => await GetFoodsBySentiment(userId, Sentiment.Liked);
 
-        // TODO: Do this by user
-        public async Task<IEnumerable<FoodResponse>> GetDislikedFoods()
-            => await GetFoodsBySentiment(Sentiment.Disliked);
+        public async Task<IEnumerable<FoodResponse>> GetDislikedFoods(int userId)
+            => await GetFoodsBySentiment(userId, Sentiment.Disliked);
 
-        // TODO: Do this by user
         public async Task ManageFoodSentiment(int foodId, int userId, Sentiment newSentiment)
         {
             var sentiment = new FoodSentiment { FoodId = foodId, UserId = userId, Sentiment = (int)newSentiment };
@@ -214,6 +216,33 @@ namespace MouthfeelAPIv2.Services
 
             else
                 _mouthfeel.FoodSentiments.Add(sentiment);
+
+            await _mouthfeel.SaveChangesAsync();
+        }
+
+        public async Task<IEnumerable<FoodResponse>> GetFoodsToTry(int userId)
+        {
+            var toTry = await (_mouthfeel.FoodsToTry.Where(f => f.UserId == userId)).ToListAsync();
+            return await GetManyFoodDetails(toTry.Select(f => f.Id), userId);
+        }
+
+        public async Task<bool> GetFoodToTryStatus(int foodId, int userId)
+        {
+            var toTry = await (_mouthfeel.FoodsToTry.Where(f => f.UserId == userId)).ToListAsync();
+            return toTry.Any(f => f.FoodId == foodId && f.UserId == userId);
+        }
+
+        public async Task AddOrRemoveFoodToTry(int foodId, int userId)
+        {
+            var toTry = _mouthfeel.FoodsToTry.Where(f => f.UserId == userId);
+            var existing = toTry.FirstOrDefault(f => f.Id == foodId && f.UserId == userId);
+
+            if (toTry.Any(f => f.Id == foodId)) _mouthfeel.FoodsToTry.Remove(existing);
+            else _mouthfeel.FoodsToTry.Add(new FoodToTry 
+            { 
+                FoodId = foodId,
+                UserId = userId
+            });
 
             await _mouthfeel.SaveChangesAsync();
         }

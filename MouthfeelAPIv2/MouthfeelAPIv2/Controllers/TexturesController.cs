@@ -23,7 +23,6 @@ namespace MouthfeelAPIv2.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Texture>>> GetTextures()
         {
-            // TODO: Maybe convert from Db model to regular model
             return await _context.Textures.OrderBy(t => t.Name).ToListAsync();
         }
     }
