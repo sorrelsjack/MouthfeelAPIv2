@@ -224,7 +224,7 @@ namespace MouthfeelAPIv2.Services
         public async Task<IEnumerable<FoodResponse>> GetFoodsToTry(int userId)
         {
             var toTry = await (_mouthfeel.FoodsToTry.Where(f => f.UserId == userId)).ToListAsync();
-            return await GetManyFoodDetails(toTry.Select(f => f.Id), userId);
+            return await GetManyFoodDetails(toTry.Select(f => f.FoodId), userId);
         }
 
         public async Task<bool> GetFoodToTryStatus(int foodId, int userId)
@@ -236,9 +236,9 @@ namespace MouthfeelAPIv2.Services
         public async Task AddOrRemoveFoodToTry(int foodId, int userId)
         {
             var toTry = _mouthfeel.FoodsToTry.Where(f => f.UserId == userId);
-            var existing = toTry.FirstOrDefault(f => f.Id == foodId && f.UserId == userId);
+            var existing = toTry.FirstOrDefault(f => f.FoodId == foodId);
 
-            if (toTry.Any(f => f.Id == foodId)) _mouthfeel.FoodsToTry.Remove(existing);
+            if (existing != null) _mouthfeel.FoodsToTry.Remove(existing);
             else _mouthfeel.FoodsToTry.Add(new FoodToTry 
             { 
                 FoodId = foodId,
