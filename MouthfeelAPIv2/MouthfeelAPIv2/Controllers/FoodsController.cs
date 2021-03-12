@@ -117,6 +117,7 @@ namespace MouthfeelAPIv2.Controllers
             [FromBody] FoodToTry food
         )
         {
+            food.UserId = IdentityHelper.GetIdFromUser(User);
             await foodsService.AddOrRemoveFoodToTry(food.FoodId, food.UserId);
             return NoContent();
         }
@@ -128,6 +129,7 @@ namespace MouthfeelAPIv2.Controllers
             [FromBody] FoodToTry food
         )
         {
+            food.UserId = IdentityHelper.GetIdFromUser(User);
             await foodsService.AddOrRemoveFoodToTry(food.FoodId, food.UserId);
             return NoContent();
         }
