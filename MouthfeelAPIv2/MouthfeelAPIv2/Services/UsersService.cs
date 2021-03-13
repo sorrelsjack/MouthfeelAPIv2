@@ -18,6 +18,8 @@ namespace MouthfeelAPIv2.Services
         Task RegisterUser(CreateUserRequest request);
 
         Task<AuthenticateUserResponse> AuthenticateUser(AuthenticateUserRequest request);
+
+        Task<UserDetails> GetUserDetails(int userId);
     }
 
     public class UsersService : IUsersService
@@ -63,6 +65,16 @@ namespace MouthfeelAPIv2.Services
             var token = TokenHelper.GenerateToken(user);
 
             return new AuthenticateUserResponse(user, token);
+        }
+
+        public async Task<UserDetails> GetUserDetails(int userId)
+        {
+            var user = _mouthfeel.Users.FirstOrDefault(u => u.Id == userId);
+            return new UserDetails
+            {
+                Id = userId,
+                Username = user.Username
+            };
         }
     }
 }

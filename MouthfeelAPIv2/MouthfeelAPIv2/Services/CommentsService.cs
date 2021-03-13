@@ -24,10 +24,12 @@ namespace MouthfeelAPIv2.Services
     public class CommentsService : ICommentsService
     {
         private readonly MouthfeelContext _mouthfeel;
+        private readonly IUsersService _users;
 
-        public CommentsService(MouthfeelContext mouthfeel)
+        public CommentsService(MouthfeelContext mouthfeel, IUsersService users)
         {
             _mouthfeel = mouthfeel;
+            _users = users;
         }
 
         public async Task CreateComment(CreateCommentRequest request)
@@ -114,8 +116,9 @@ namespace MouthfeelAPIv2.Services
         {
             var commentVotes = (await _mouthfeel.CommentVotes.ToListAsync()).Where(c => c.Id == comment.Id);
             var userVote = commentVotes.FirstOrDefault(v => v.UserId == userId).Vote;
+            var userDetails = await _users.GetUserDetails(userId);
 
-            return new CommentResponse(comment, commentVotes.Sum(c => c.Vote), userVote);
+            return new CommentResponse(comment, userDetails, commentVotes.Sum(c => c.Vote), userVote);
         }
     }
 }
