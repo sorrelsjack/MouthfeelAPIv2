@@ -115,7 +115,7 @@ namespace MouthfeelAPIv2.Services
         private async Task<CommentResponse> TallyCommentVotes(Comment comment, int userId)
         {
             var commentVotes = (await _mouthfeel.CommentVotes.ToListAsync()).Where(c => c.Id == comment.Id);
-            var userVote = commentVotes.FirstOrDefault(v => v.UserId == userId).Vote;
+            var userVote = commentVotes.FirstOrDefault(v => v.UserId == userId)?.Vote ?? 0;
             var userDetails = await _users.GetUserDetails(userId);
 
             return new CommentResponse(comment, userDetails, commentVotes.Sum(c => c.Vote), userVote);
