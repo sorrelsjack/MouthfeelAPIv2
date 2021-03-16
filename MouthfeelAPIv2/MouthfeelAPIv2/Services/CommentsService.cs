@@ -34,7 +34,7 @@ namespace MouthfeelAPIv2.Services
 
         public async Task CreateComment(CreateCommentRequest request)
         {
-            if (request.Body.IsNullOrWhitespace()) throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.CommentMustHaveBody);
+            if (request.Body.IsNullOrWhitespace()) throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.CommentMustHaveBody, DescriptiveErrorCodes.CommentMissingBody);
 
             // TODO: Need validation here... Does user exist? Does food exist?
 
@@ -70,7 +70,7 @@ namespace MouthfeelAPIv2.Services
             // TODO: Verify the user exists
 
             if (!comments.Any(c => c.Id == commentId))
-                throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.CommentDoesNotExist);
+                throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.CommentDoesNotExist, DescriptiveErrorCodes.CommentDoesNotExist);
 
             var existingVoteByUser = commentVotes.FirstOrDefault(v => v.CommentId == commentId && v.UserId == userId);
 

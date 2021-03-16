@@ -34,14 +34,14 @@ namespace MouthfeelAPIv2.Services
         public async Task RegisterUser(CreateUserRequest request)
         {
             var usernameTaken = _mouthfeel.Users.Any(u => u.Username == request.Username);
-            if (usernameTaken) throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.UsernameTaken);
+            if (usernameTaken) throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.UsernameTaken, DescriptiveErrorCodes.UsernameTaken);
 
             var emailIsRegistered = _mouthfeel.Users.Any(u => u.Email == request.Email);
-            if (emailIsRegistered) throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.EmailIsRegistered);
+            if (emailIsRegistered) throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.EmailIsRegistered, DescriptiveErrorCodes.EmailAlreadyRegistered);
 
-            if (request.Username.Length > 50) throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.UsernameTooLong);
+            if (request.Username.Length > 50) throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.UsernameTooLong, DescriptiveErrorCodes.UsernameTooLong);
 
-            if (!request.Email.IsValidEmail()) throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.EmailIsNotAValidStructure);
+            if (!request.Email.IsValidEmail()) throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.EmailIsNotAValidStructure, DescriptiveErrorCodes.EmailInvalidStructure);
 
             _mouthfeel.Users.Add(new User 
             { 
@@ -58,9 +58,9 @@ namespace MouthfeelAPIv2.Services
         {
             var user = _mouthfeel.Users.FirstOrDefault(u => u.Username == request.Username);
 
-            if (request == null || request.Username.IsNullOrWhitespace() || request.Password.IsNullOrWhitespace()) throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.MissingLoginDetails);
-            if (user == null) throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.UserNotFound);
-            if (user.Password != request.Password.MakePasswordHash()) throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.IncorrectPassword);
+            if (request == null || request.Username.IsNullOrWhitespace() || request.Password.IsNullOrWhitespace()) throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.MissingLoginDetails, DescriptiveErrorCodes.MissingLoginDetails);
+            if (user == null) throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.UserNotFound, DescriptiveErrorCodes.UserNotFound);
+            if (user.Password != request.Password.MakePasswordHash()) throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.IncorrectPassword, DescriptiveErrorCodes.IncorrectCredentials);
 
             var token = TokenHelper.GenerateToken(user);
 

@@ -69,7 +69,7 @@ namespace MouthfeelAPIv2.Services
             var misc = await _misc.GetMiscellaneousVotes(foodId);
 
             if (food == null)
-                throw new ErrorResponse(HttpStatusCode.NotFound, ErrorMessages.FoodNotFound);
+                throw new ErrorResponse(HttpStatusCode.NotFound, ErrorMessages.FoodNotFound, DescriptiveErrorCodes.FoodNotFound);
 
             return new FoodResponse(food, sentiment, toTry, ingredients, flavors, textures, misc);
         }
@@ -127,27 +127,27 @@ namespace MouthfeelAPIv2.Services
             var foods = await _mouthfeel.Foods.ToListAsync();
 
             if (foods.Any(f => String.Equals(f.Name, request.Name, StringComparison.OrdinalIgnoreCase))) 
-                throw new ErrorResponse(HttpStatusCode.BadRequest, "A food with that name already exists.");
+                throw new ErrorResponse(HttpStatusCode.BadRequest, "A food with that name already exists.", DescriptiveErrorCodes.FoodAlreadyExists);
 
             if (request.Flavors.Any())
             {
                 var flavors = await _mouthfeel.Flavors.ToListAsync();
                 if (!request.Flavors.All(f => flavors.Select(fl => fl.Id).Contains(f)))
-                    throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.FlavorDoesNotExist);
+                    throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.FlavorDoesNotExist, DescriptiveErrorCodes.FlavorDoesNotExist);
             }
 
             if (request.Miscellaneous.Any())
             {
                 var misc = await _mouthfeel.Miscellaneous.ToListAsync();
                 if (!request.Miscellaneous.All(m => misc.Select(ms => ms.Id).Contains(m)))
-                    throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.MiscellaneousDoesNotExist);
+                    throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.MiscellaneousDoesNotExist, DescriptiveErrorCodes.MiscellaneousDoesNotExist);
             }
 
             if (request.Textures.Any())
             {
                 var textures = await _mouthfeel.Textures.ToListAsync();
                 if (!request.Textures.All(t => textures.Select(tx => tx.Id).Contains(t)))
-                    throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.TextureDoesNotExist);
+                    throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.TextureDoesNotExist, DescriptiveErrorCodes.TextureDoesNotExist);
             }
 
             var food = new Food 

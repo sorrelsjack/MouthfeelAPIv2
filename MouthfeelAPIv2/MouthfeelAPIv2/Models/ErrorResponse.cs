@@ -10,11 +10,13 @@ namespace MouthfeelAPIv2.Models
     {
         public HttpStatusCode? ErrorCode { get; set; }
         public string ErrorMessage { get; set; }
+        public string DescriptiveErrorCode { get; set; }
 
-        public ErrorResponse(HttpStatusCode errorCode, string errorMessage)
+        public ErrorResponse(HttpStatusCode errorCode, string errorMessage, string descriptiveErrorCode = null)
         {
             ErrorCode = errorCode;
             ErrorMessage = errorMessage;
+            DescriptiveErrorCode = descriptiveErrorCode;
         }
     }
 }

@@ -109,9 +109,11 @@ namespace MouthfeelAPIv2
                         var exception = GetInnermostException(context);
                         var ex = exception as ErrorResponse;
                         response.StatusCode = ex?.ErrorCode != null ? (int)ex.ErrorCode : (int)HttpStatusCode.InternalServerError;
+
                         var body = ex.ErrorMessage;
 
-                        return response.WriteAsync(JsonConvert.SerializeObject(new { ErrorCode = response.StatusCode, Message = body }, Formatting.Indented));
+                        response.ContentType = "application/json";
+                        return response.WriteAsync(JsonConvert.SerializeObject(new { ErrorCode = response.StatusCode, DescriptiveErrorCode = ex.DescriptiveErrorCode, Message = body }, Formatting.Indented));
                     }
                     catch (Exception)
                     {

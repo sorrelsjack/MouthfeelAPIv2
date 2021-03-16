@@ -52,7 +52,7 @@ namespace MouthfeelAPIv2.Services
             // TODO: Verify the food exists
 
             if (!textures.Any(f => f.Id == textureId))
-                throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.TextureDoesNotExist);
+                throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.TextureDoesNotExist, DescriptiveErrorCodes.TextureDoesNotExist);
 
             var existingVoteByUser = textureVotes.FirstOrDefault(v => v.TextureId == textureId && v.FoodId == foodId && v.UserId == userId);
 

@@ -53,7 +53,7 @@ namespace MouthfeelAPIv2.Services
             // TODO: Verify the food exists
 
             if (!misc.Any(f => f.Id == miscVote))
-                throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.MiscellaneousDoesNotExist);
+                throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.MiscellaneousDoesNotExist, DescriptiveErrorCodes.MiscellaneousDoesNotExist);
 
             var existingVoteByUser = miscVotes.FirstOrDefault(v => v.MiscId == miscVote && v.FoodId == foodId && v.UserId == userId);
 
