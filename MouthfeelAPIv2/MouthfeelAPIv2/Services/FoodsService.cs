@@ -13,7 +13,6 @@ using System.Threading.Tasks;
 using System.Web.Http;
 using FoodSearchType = MouthfeelAPIv2.Constants.FoodSearchType;
 
-// TODO: Maybe convert votes in DB back to tiny int? Then do a conversion between bytes and ints
 namespace MouthfeelAPIv2.Services
 {
     public interface IFoodsService
@@ -64,9 +63,9 @@ namespace MouthfeelAPIv2.Services
             var sentiment = await GetFoodSentiment(foodId, userId);
             var toTry = await GetFoodToTryStatus(foodId, userId);
             var ingredients = await _ingredients.GetIngredients(foodId);
-            var textures = await _textures.GetTextureVotes(foodId);
-            var flavors = await _flavors.GetFlavorVotes(foodId);
-            var misc = await _misc.GetMiscellaneousVotes(foodId);
+            var textures = await _textures.GetTextureVotes(foodId, userId);
+            var flavors = await _flavors.GetFlavorVotes(foodId, userId);
+            var misc = await _misc.GetMiscellaneousVotes(foodId, userId);
 
             if (food == null)
                 throw new ErrorResponse(HttpStatusCode.NotFound, ErrorMessages.FoodNotFound, DescriptiveErrorCodes.FoodNotFound);
@@ -157,7 +156,7 @@ namespace MouthfeelAPIv2.Services
             };
 
             _mouthfeel.Foods.Add(food);
-            _mouthfeel.SaveChanges();
+            await _mouthfeel.SaveChangesAsync();
 
             var foodId = (await _mouthfeel.Foods.FirstOrDefaultAsync(f => f.Name == food.Name)).Id;
 
@@ -191,7 +190,14 @@ namespace MouthfeelAPIv2.Services
                 .Where(f => f.Sentiment == (int)sentiment);
 
             var detailsTask = f.Select(f => GetFoodDetails(f.Id, userId));
-            var foodWithDetails = await Task.WhenAll(detailsTask);
+
+            var foodWithDetails = Enumerable.Empty<FoodResponse>();
+
+            foreach (var details in detailsTask)
+            {
+                var res = await details;
+                foodWithDetails = foodWithDetails.Append(res);
+            }
 
             return foodWithDetails;
         }

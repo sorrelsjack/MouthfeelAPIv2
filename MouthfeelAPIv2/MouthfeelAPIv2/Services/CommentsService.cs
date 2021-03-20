@@ -14,9 +14,9 @@ namespace MouthfeelAPIv2.Services
 {
     public interface ICommentsService
     {
-        Task CreateComment(CreateCommentRequest request);
+        Task<CommentResponse> CreateComment(CreateCommentRequest request);
         Task DeleteComment();
-        Task ManageCommentVote(int commentId, int userId, int foodId, VoteState voteState);
+        Task<CommentVote> ManageCommentVote(int commentId, int userId, int foodId, VoteState voteState);
         Task<IEnumerable<CommentResponse>> GetCommentsByFood(int foodId, int userId);
         Task<IEnumerable<CommentResponse>> GetCommentsByUser(int userId);
     }
@@ -32,7 +32,7 @@ namespace MouthfeelAPIv2.Services
             _users = users;
         }
 
-        public async Task CreateComment(CreateCommentRequest request)
+        public async Task<CommentResponse> CreateComment(CreateCommentRequest request)
         {
             if (request.Body.IsNullOrWhitespace()) throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.CommentMustHaveBody, DescriptiveErrorCodes.CommentMissingBody);
 
@@ -46,12 +46,14 @@ namespace MouthfeelAPIv2.Services
                 DateTime = DateTime.UtcNow
             };
 
-            _mouthfeel.Comments.Add(comment);
+            await _mouthfeel.Comments.AddAsync(comment);
 
             await _mouthfeel.SaveChangesAsync();
 
             await ManageCommentVote(comment.Id, request.UserId, request.FoodId, VoteState.Up);
+            var userDetails = await _users.GetUserDetails(request.UserId);
 
+            return new CommentResponse(comment, userDetails, 1, (int)VoteState.Up);
         }
 
         // TODO: Delete comment
@@ -61,7 +63,7 @@ namespace MouthfeelAPIv2.Services
         }
 
 
-        public async Task ManageCommentVote(int commentId, int userId, int foodId, VoteState voteState)
+        public async Task<CommentVote> ManageCommentVote(int commentId, int userId, int foodId, VoteState voteState)
         {
             var commentVotes = await _mouthfeel.CommentVotes.ToListAsync();
             var comments = await GetCommentsByFood(foodId, userId);
@@ -73,6 +75,7 @@ namespace MouthfeelAPIv2.Services
                 throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.CommentDoesNotExist, DescriptiveErrorCodes.CommentDoesNotExist);
 
             var existingVoteByUser = commentVotes.FirstOrDefault(v => v.CommentId == commentId && v.UserId == userId);
+            var newVote = new CommentVote { CommentId = commentId, UserId = userId, Vote = (int)voteState };
 
             if (existingVoteByUser != null)
             {
@@ -83,32 +86,42 @@ namespace MouthfeelAPIv2.Services
             }
 
             else
-            {
-                _mouthfeel.CommentVotes.Add(new CommentVote
-                {
-                    CommentId = commentId,
-                    UserId = userId,
-                    Vote = (int)voteState
-                });
-            }
+                _mouthfeel.CommentVotes.Add(newVote);
 
             await _mouthfeel.SaveChangesAsync();
+
+            return newVote;
         }
 
         public async Task<IEnumerable<CommentResponse>> GetCommentsByFood(int foodId, int userId)
         {
             var comments = (await _mouthfeel.Comments.ToListAsync()).Where(c => c.FoodId == foodId);
             var tallyTasks = comments.Select(c => TallyCommentVotes(c, userId));
-            var tallied = await Task.WhenAll(tallyTasks);
-            return tallied;
 
+            var tallied = Enumerable.Empty<CommentResponse>();
+
+            foreach (var tally in tallyTasks)
+            {
+                var res = await tally;
+                tallied = tallied.Append(res);
+            }
+
+            return tallied;
         }
 
         public async Task<IEnumerable<CommentResponse>> GetCommentsByUser(int userId)
         {
             var comments = (await _mouthfeel.Comments.ToListAsync()).Where(c => c.UserId == userId);
             var tallyTasks = comments.Select(c => TallyCommentVotes(c, userId));
-            var tallied = await Task.WhenAll(tallyTasks);
+
+            var tallied = Enumerable.Empty<CommentResponse>();
+
+            foreach (var tally in tallyTasks)
+            {
+                var res = await tally;
+                tallied = tallied.Append(res);
+            }
+
             return tallied;
         }
 

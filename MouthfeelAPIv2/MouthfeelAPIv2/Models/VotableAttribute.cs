@@ -11,6 +11,6 @@ namespace MouthfeelAPIv2.Models
         public string Name { get; set; }
         public string Description { get; set; }
         public int Votes { get; set; }
-
+        public int Sentiment { get; set; }
     }
 }

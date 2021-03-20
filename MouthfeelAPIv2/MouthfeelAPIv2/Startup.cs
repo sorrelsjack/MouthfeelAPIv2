@@ -40,7 +40,7 @@ namespace MouthfeelAPIv2
             ConfigureConstants();
             IdentityModelEventSource.ShowPII = true;
 
-            services.AddDbContext<MouthfeelContext>(opt => opt.UseSqlServer(Configuration["DatabaseConnectionString"]), ServiceLifetime.Transient);
+            services.AddDbContext<MouthfeelContext>(opt => opt.UseSqlServer(Configuration["SqlDatabaseConnectionString"]), ServiceLifetime.Transient);
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
             {
                 options.RequireHttpsMetadata = false;
@@ -110,10 +110,11 @@ namespace MouthfeelAPIv2
                         var ex = exception as ErrorResponse;
                         response.StatusCode = ex?.ErrorCode != null ? (int)ex.ErrorCode : (int)HttpStatusCode.InternalServerError;
 
-                        var body = ex.ErrorMessage;
+                        var body = ex?.ErrorMessage ?? "An unexpected error occurred.";
+                        var descriptiveErrorCode = ex?.DescriptiveErrorCode ?? "INTERNAL_ERROR";
 
                         response.ContentType = "application/json";
-                        return response.WriteAsync(JsonConvert.SerializeObject(new { ErrorCode = response.StatusCode, DescriptiveErrorCode = ex.DescriptiveErrorCode, Message = body }, Formatting.Indented));
+                        return response.WriteAsync(JsonConvert.SerializeObject(new { ErrorCode = response.StatusCode, DescriptiveErrorCode = descriptiveErrorCode, Message = body }, Formatting.Indented));
                     }
                     catch (Exception)
                     {

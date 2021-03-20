@@ -10,15 +10,16 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using System.Web.Http;
+using Attribute = MouthfeelAPIv2.DbModels.Attribute;
 
 namespace MouthfeelAPIv2.Services
 {
     public interface IMiscellaneousService
     {
-        Task<IEnumerable<VotableAttribute>> GetMiscellaneousVotes(int? foodId);
+        Task<IEnumerable<VotableAttribute>> GetMiscellaneousVotes(int? foodId, int userId);
         Task ManageMiscellaneousVote(int miscId, int userId, int foodId);
 
-        Task<IEnumerable<Miscellaneous>> SearchMiscellaneous(string query);
+        Task<IEnumerable<Attribute>> SearchMiscellaneous(string query);
     }
 
     public class MiscellaneousService : IMiscellaneousService
@@ -30,42 +31,49 @@ namespace MouthfeelAPIv2.Services
             _mouthfeel = mouthfeel;
         }
 
-        public async Task<IEnumerable<VotableAttribute>> GetMiscellaneousVotes(int? foodId)
+        private async Task<IEnumerable<Attribute>> GetMiscellaneousAttributes()
         {
-            var miscVotes = (await _mouthfeel.MiscellaneousVotes.ToListAsync()).Where(m => m.FoodId == foodId);
-            var misc = await _mouthfeel.Miscellaneous.ToListAsync();
+            return await _mouthfeel.Attributes.Where(a => a.TypeId == 2).ToListAsync();
+        }
 
-            return misc.Join(miscVotes, misc => misc.Id, vote => vote.MiscId, (misc, vote) =>
+        public async Task<IEnumerable<VotableAttribute>> GetMiscellaneousVotes(int? foodId, int userId)
+        {
+            var miscVotes = (await _mouthfeel.AttributeVotes.ToListAsync()).Where(m => m.FoodId == foodId);
+            var userVote = miscVotes.FirstOrDefault(v => v.UserId == userId)?.Vote ?? 0;
+            var misc = await GetMiscellaneousAttributes();
+
+            return misc.Join(miscVotes, misc => misc.Id, vote => vote.AttributeId, (misc, vote) =>
                 new VotableAttribute
                 {
                     Id = misc.Id,
                     Name = misc.Name,
                     Description = misc.Description,
-                    Votes = miscVotes.Where(v => v.MiscId == misc.Id).Aggregate(0, (total, next) => total + next.Vote)
+                    Votes = miscVotes.Where(v => v.AttributeId == misc.Id).Aggregate(0, (total, next) => total + next.Vote),
+                    Sentiment = userVote
                 }).DistinctBy(m => m.Id);
         }
 
         public async Task ManageMiscellaneousVote(int miscVote, int userId, int foodId)
         {
-            var miscVotes = await _mouthfeel.MiscellaneousVotes.ToListAsync();
-            var misc = await _mouthfeel.Miscellaneous.ToListAsync();
+            var miscVotes = (await _mouthfeel.AttributeVotes.ToListAsync()).Where(m => m.FoodId == foodId);
+            var misc = await GetMiscellaneousAttributes();
 
             // TODO: Verify the food exists
 
             if (!misc.Any(f => f.Id == miscVote))
                 throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.MiscellaneousDoesNotExist, DescriptiveErrorCodes.MiscellaneousDoesNotExist);
 
-            var existingVoteByUser = miscVotes.FirstOrDefault(v => v.MiscId == miscVote && v.FoodId == foodId && v.UserId == userId);
+            var existingVoteByUser = miscVotes.FirstOrDefault(v => v.AttributeId == miscVote && v.FoodId == foodId && v.UserId == userId);
 
             // Delete it, otherwise we'll have a bunch of 0 records clogging up the table
             if (existingVoteByUser != null)
-                _mouthfeel.MiscellaneousVotes.Remove(existingVoteByUser);
+                _mouthfeel.AttributeVotes.Remove(existingVoteByUser);
 
             else
             {
-                _mouthfeel.MiscellaneousVotes.Add(new MiscellaneousVote
+                _mouthfeel.AttributeVotes.Add(new AttributeVote
                 {
-                    MiscId = miscVote,
+                    AttributeId = miscVote,
                     UserId = userId,
                     FoodId = foodId,
                     Vote = 1
@@ -75,6 +83,6 @@ namespace MouthfeelAPIv2.Services
             await _mouthfeel.SaveChangesAsync();
         }
 
-        public async Task<IEnumerable<Miscellaneous>> SearchMiscellaneous(string query) => (await _mouthfeel.Miscellaneous.ToListAsync()).Where(m => m.Name == query);
+        public async Task<IEnumerable<Attribute>> SearchMiscellaneous(string query) => (await GetMiscellaneousAttributes()).Where(m => m.Name == query);
     }
 }

@@ -10,14 +10,15 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using System.Web.Http;
+using Attribute = MouthfeelAPIv2.DbModels.Attribute;
 
 namespace MouthfeelAPIv2.Services
 {
     public interface ITexturesService
     {
-        Task<IEnumerable<VotableAttribute>> GetTextureVotes(int? foodId);
+        Task<IEnumerable<VotableAttribute>> GetTextureVotes(int? foodId, int userId);
         Task ManageTextureVote(int textureId, int userId, int foodId);
-        Task<IEnumerable<Texture>> SearchTextures(string query);
+        Task<IEnumerable<Attribute>> SearchTextures(string query);
     }
 
     public class TexturesService : ITexturesService
@@ -29,42 +30,48 @@ namespace MouthfeelAPIv2.Services
             _mouthfeel = mouthfeel;
         }
 
-        public async Task<IEnumerable<VotableAttribute>> GetTextureVotes(int? foodId)
+        private async Task<IEnumerable<Attribute>> GetTextureAttributes()
         {
-            var textureVotes = (await _mouthfeel.TextureVotes.ToListAsync()).Where(t => t.FoodId == foodId);
-            var textures = await _mouthfeel.Textures.ToListAsync();
+            return await _mouthfeel.Attributes.Where(a => a.TypeId == 3).ToListAsync();
+        }
 
-            return textures.Join(textureVotes, texture => texture.Id, vote => vote.TextureId, (texture, vote) =>
+        public async Task<IEnumerable<VotableAttribute>> GetTextureVotes(int? foodId, int userId)
+        {
+            var textureVotes = (await _mouthfeel.AttributeVotes.ToListAsync()).Where(m => m.FoodId == foodId);
+            var userVote = textureVotes.FirstOrDefault(v => v.UserId == userId)?.Vote ?? 0;
+            var textures = await GetTextureAttributes();
+
+            return textures.Join(textureVotes, texture => texture.Id, vote => vote.AttributeId, (texture, vote) =>
                 new VotableAttribute
                 {
                     Id = texture.Id,
                     Name = texture.Name,
                     Description = texture.Description,
-                    Votes = textureVotes.Where(v => v.TextureId == texture.Id).Aggregate(0, (total, next) => total + next.Vote)
+                    Votes = textureVotes.Where(v => v.AttributeId == texture.Id).Aggregate(0, (total, next) => total + next.Vote)
                 }).DistinctBy(t => t.Id);
         }
 
         public async Task ManageTextureVote(int textureId, int userId, int foodId)
         {
-            var textureVotes = await _mouthfeel.TextureVotes.ToListAsync();
-            var textures = await _mouthfeel.Textures.ToListAsync();
+            var textureVotes = (await _mouthfeel.AttributeVotes.ToListAsync()).Where(m => m.FoodId == foodId);
+            var textures = await GetTextureAttributes();
 
             // TODO: Verify the food exists
 
             if (!textures.Any(f => f.Id == textureId))
                 throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.TextureDoesNotExist, DescriptiveErrorCodes.TextureDoesNotExist);
 
-            var existingVoteByUser = textureVotes.FirstOrDefault(v => v.TextureId == textureId && v.FoodId == foodId && v.UserId == userId);
+            var existingVoteByUser = textureVotes.FirstOrDefault(v => v.AttributeId == textureId && v.FoodId == foodId && v.UserId == userId);
 
             // Delete it, otherwise we'll have a bunch of 0 records clogging up the table
             if (existingVoteByUser != null)
-                _mouthfeel.TextureVotes.Remove(existingVoteByUser);
+                _mouthfeel.AttributeVotes.Remove(existingVoteByUser);
 
             else
             {
-                _mouthfeel.TextureVotes.Add(new TextureVote
+                _mouthfeel.AttributeVotes.Add(new AttributeVote
                 {
-                    TextureId = textureId,
+                    AttributeId = textureId,
                     UserId = userId,
                     FoodId = foodId,
                     Vote = 1
@@ -74,6 +81,6 @@ namespace MouthfeelAPIv2.Services
             await _mouthfeel.SaveChangesAsync();
         }
 
-        public async Task<IEnumerable<Texture>> SearchTextures(string query) => (await _mouthfeel.Textures.ToListAsync()).Where(t => t.Name == query);
+        public async Task<IEnumerable<Attribute>> SearchTextures(string query) => (await GetTextureAttributes()).Where(t => t.Name == query);
     }
 }

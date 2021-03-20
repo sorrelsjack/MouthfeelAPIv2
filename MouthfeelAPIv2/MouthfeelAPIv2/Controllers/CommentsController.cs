@@ -34,15 +34,14 @@ namespace MouthfeelAPIv2.Controllers
         ) => (await commentsService.GetCommentsByFood(id, IdentityHelper.GetIdFromUser(User))).ToList();
 
         [HttpPost]
-        public async Task<ActionResult> CreateComment 
+        public async Task<ActionResult<CommentResponse>> CreateComment 
         (
             [FromServices] ICommentsService commentsService,
             [FromBody] CreateCommentRequest request
         )
         {
             request.UserId = IdentityHelper.GetIdFromUser(User);
-            await commentsService.CreateComment(request);
-            return NoContent();
+            return await commentsService.CreateComment(request);
         }
 
         [HttpPut]
