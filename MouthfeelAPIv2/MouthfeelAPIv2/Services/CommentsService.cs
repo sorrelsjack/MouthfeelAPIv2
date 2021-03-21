@@ -24,11 +24,13 @@ namespace MouthfeelAPIv2.Services
     public class CommentsService : ICommentsService
     {
         private readonly MouthfeelContext _mouthfeel;
+        private readonly IFoodsService _foods;
         private readonly IUsersService _users;
 
-        public CommentsService(MouthfeelContext mouthfeel, IUsersService users)
+        public CommentsService(MouthfeelContext mouthfeel, IFoodsService foods, IUsersService users)
         {
             _mouthfeel = mouthfeel;
+            _foods = foods;
             _users = users;
         }
 
@@ -36,7 +38,13 @@ namespace MouthfeelAPIv2.Services
         {
             if (request.Body.IsNullOrWhitespace()) throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.CommentMustHaveBody, DescriptiveErrorCodes.CommentMissingBody);
 
-            // TODO: Need validation here... Does user exist? Does food exist?
+            var foodExists = await _foods.FoodExists(request.FoodId);
+            if (!foodExists)
+                throw new ErrorResponse(HttpStatusCode.NotFound, ErrorMessages.FoodNotFound, DescriptiveErrorCodes.FoodNotFound);
+
+            var userExists = await _users.UserExists(request.UserId);
+            if (!userExists) 
+                throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.UserNotFound, DescriptiveErrorCodes.UserNotFound);
 
             var comment = new Comment
             {
@@ -68,8 +76,13 @@ namespace MouthfeelAPIv2.Services
             var commentVotes = await _mouthfeel.CommentVotes.ToListAsync();
             var comments = await GetCommentsByFood(foodId, userId);
 
-            // TODO: Verify the food exists
-            // TODO: Verify the user exists
+            var foodExists = await _foods.FoodExists(foodId);
+            if (!foodExists)
+                throw new ErrorResponse(HttpStatusCode.NotFound, ErrorMessages.FoodNotFound, DescriptiveErrorCodes.FoodNotFound);
+
+            var userExists = await _users.UserExists(userId);
+            if (!userExists)
+                throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.UserNotFound, DescriptiveErrorCodes.UserNotFound);
 
             if (!comments.Any(c => c.Id == commentId))
                 throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.CommentDoesNotExist, DescriptiveErrorCodes.CommentDoesNotExist);

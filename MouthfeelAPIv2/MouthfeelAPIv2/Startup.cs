@@ -62,11 +62,10 @@ namespace MouthfeelAPIv2
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Configuration["JwtSigningSecret"]))
                 };
             });
+
+            services.AddScoped<IAttributesService, AttributesService>();
             services.AddScoped<IFoodsService, FoodsService>();
             services.AddScoped<IIngredientsService, IngredientsService>();
-            services.AddScoped<IFlavorsService, FlavorsService>();
-            services.AddScoped<ITexturesService, TexturesService>();
-            services.AddScoped<IMiscellaneousService, MiscellaneousService>();
             services.AddScoped<ICommentsService, CommentsService>();
             services.AddScoped<IUsersService, UsersService>();
             services.AddControllers();

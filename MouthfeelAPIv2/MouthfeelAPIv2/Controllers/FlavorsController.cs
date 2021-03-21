@@ -6,6 +6,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MouthfeelAPIv2.DbModels;
+using MouthfeelAPIv2.Enums;
+using MouthfeelAPIv2.Services;
+using Attribute = MouthfeelAPIv2.DbModels.Attribute;
 
 namespace MouthfeelAPIv2.Controllers
 {
@@ -21,9 +24,9 @@ namespace MouthfeelAPIv2.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Flavor>>> GetTextures()
-        {
-            return await _context.Flavors.OrderBy(f => f.Name).ToListAsync();
-        }
+        public async Task<ActionResult<IEnumerable<Attribute>>> GetFlavors
+        (
+            [FromServices] IAttributesService _attributes
+        ) => (await _attributes.GetAttributes(VotableAttributeType.Flavor)).ToList();
     }
 }

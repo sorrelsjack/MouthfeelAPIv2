@@ -6,15 +6,12 @@ using System.Threading.Tasks;
 
 namespace MouthfeelAPIv2.DbModels
 {
-    public class Flavor
+    [Table("attribute_types")]
+    public class AttributeType
     {
         [Column("id")]
         public int Id { get; set; }
         [Column("name")]
         public string Name { get; set; }
-        [Column("description")]
-        public string Description { get; set; }
-        [Column("source")]
-        public string Source { get; set; }
     }
 }

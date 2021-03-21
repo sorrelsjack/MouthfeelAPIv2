@@ -17,6 +17,7 @@ namespace MouthfeelAPIv2.Services
 {
     public interface IFoodsService
     {
+        Task<bool> FoodExists(int foodId);
         Task<FoodResponse> GetFoodDetails(int foodId, int userId);
         Task<IEnumerable<FoodResponse>> SearchFoods(string query, IEnumerable<string> searchFilter, int userId);
         Task AddFood(CreateFoodRequest request, int userId);
@@ -36,26 +37,21 @@ namespace MouthfeelAPIv2.Services
 
         private readonly IIngredientsService _ingredients;
 
-        private readonly IFlavorsService _flavors;
-
-        private readonly IMiscellaneousService _misc;
-
-        private readonly ITexturesService _textures;
+        private readonly IAttributesService _attributes;
 
         public FoodsService(
             MouthfeelContext mouthfeel,
             IIngredientsService ingredients,
-            IFlavorsService flavors,
-            IMiscellaneousService misc,
-            ITexturesService textures
+            IAttributesService attributes
         )
         {
             _mouthfeel = mouthfeel;
             _ingredients = ingredients;
-            _flavors = flavors;
-            _misc = misc;
-            _textures = textures;
+            _attributes = attributes;
         }
+
+        public async Task<bool> FoodExists(int foodId)
+            => (await _mouthfeel.Foods.ToListAsync()).Any(f => f.Id == foodId);
 
         public async Task<FoodResponse> GetFoodDetails(int foodId, int userId)
         {
@@ -63,9 +59,9 @@ namespace MouthfeelAPIv2.Services
             var sentiment = await GetFoodSentiment(foodId, userId);
             var toTry = await GetFoodToTryStatus(foodId, userId);
             var ingredients = await _ingredients.GetIngredients(foodId);
-            var textures = await _textures.GetTextureVotes(foodId, userId);
-            var flavors = await _flavors.GetFlavorVotes(foodId, userId);
-            var misc = await _misc.GetMiscellaneousVotes(foodId, userId);
+            var textures = await _attributes.GetVotes(foodId, userId, VotableAttributeType.Texture);
+            var flavors = await _attributes.GetVotes(foodId, userId, VotableAttributeType.Flavor);
+            var misc = await _attributes.GetVotes(foodId, userId, VotableAttributeType.Miscellaneous);
 
             if (food == null)
                 throw new ErrorResponse(HttpStatusCode.NotFound, ErrorMessages.FoodNotFound, DescriptiveErrorCodes.FoodNotFound);
@@ -84,19 +80,19 @@ namespace MouthfeelAPIv2.Services
             // If attributes, query attributes tables, get ids of attributes, then go to vote tables, then get food ids from matching records
             if (searchFilter.Contains(FoodSearchType.Attributes))
             {
-                var flavors = await _flavors.SearchFlavors(query);
+                var flavors = await _attributes.SearchAttributes(query, VotableAttributeType.Flavor);
                 var f = flavors
-                    .Join(_mouthfeel.FlavorVotes, flavor => flavor.Id, vote => vote.FlavorId, (flavor, vote) => new { flavor.Id, flavor.Name, vote.FoodId })
+                    .Join(_mouthfeel.AttributeVotes, flavor => flavor.Id, vote => vote.AttributeId, (flavor, vote) => new { flavor.Id, flavor.Name, vote.FoodId })
                     .Join(_mouthfeel.Foods, fv => fv.FoodId, food => food.Id, (fv, food) => new Food { Id = food.Id, Name = food.Name, ImageUrl = food.ImageUrl });
 
-                var textures = await _textures.SearchTextures(query);
+                var textures = await _attributes.SearchAttributes(query, VotableAttributeType.Texture);
                 var t = textures
-                    .Join(_mouthfeel.TextureVotes, texture => texture.Id, vote => vote.TextureId, (texture, vote) => new { texture.Id, texture.Name, vote.FoodId })
+                    .Join(_mouthfeel.AttributeVotes, texture => texture.Id, vote => vote.AttributeId, (texture, vote) => new { texture.Id, texture.Name, vote.FoodId })
                     .Join(_mouthfeel.Foods, tv => tv.FoodId, food => food.Id, (tv, food) => new Food { Id = food.Id, Name = food.Name, ImageUrl = food.ImageUrl });
 
-                var misc = await _misc.SearchMiscellaneous(query);
+                var misc = await _attributes.SearchAttributes(query, VotableAttributeType.Miscellaneous);
                 var m = misc
-                    .Join(_mouthfeel.MiscellaneousVotes, mis => mis.Id, vote => vote.MiscId, (mis, vote) => new { mis.Id, mis.Name, vote.FoodId })
+                    .Join(_mouthfeel.AttributeVotes, mis => mis.Id, vote => vote.AttributeId, (mis, vote) => new { mis.Id, mis.Name, vote.FoodId })
                     .Join(_mouthfeel.Foods, mv => mv.FoodId, food => food.Id, (mv, food) => new Food { Id = food.Id, Name = food.Name, ImageUrl = food.ImageUrl });
 
                 foods = foods.Concat(f).Concat(t).Concat(m).ToArray();
@@ -130,21 +126,21 @@ namespace MouthfeelAPIv2.Services
 
             if (request.Flavors.Any())
             {
-                var flavors = await _mouthfeel.Flavors.ToListAsync();
+                var flavors = await _attributes.GetAttributes(VotableAttributeType.Flavor);
                 if (!request.Flavors.All(f => flavors.Select(fl => fl.Id).Contains(f)))
                     throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.FlavorDoesNotExist, DescriptiveErrorCodes.FlavorDoesNotExist);
             }
 
             if (request.Miscellaneous.Any())
             {
-                var misc = await _mouthfeel.Miscellaneous.ToListAsync();
+                var misc = await _attributes.GetAttributes(VotableAttributeType.Miscellaneous);
                 if (!request.Miscellaneous.All(m => misc.Select(ms => ms.Id).Contains(m)))
                     throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.MiscellaneousDoesNotExist, DescriptiveErrorCodes.MiscellaneousDoesNotExist);
             }
 
             if (request.Textures.Any())
             {
-                var textures = await _mouthfeel.Textures.ToListAsync();
+                var textures = await _attributes.GetAttributes(VotableAttributeType.Texture);
                 if (!request.Textures.All(t => textures.Select(tx => tx.Id).Contains(t)))
                     throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.TextureDoesNotExist, DescriptiveErrorCodes.TextureDoesNotExist);
             }
@@ -160,9 +156,9 @@ namespace MouthfeelAPIv2.Services
 
             var foodId = (await _mouthfeel.Foods.FirstOrDefaultAsync(f => f.Name == food.Name)).Id;
 
-            var flavorTasks = request.Flavors?.Select(f => _flavors.ManageFlavorVote(f, userId, foodId));
-            var miscTasks = request.Miscellaneous?.Select(m => _misc.ManageMiscellaneousVote(m, userId, foodId));
-            var textureTasks = request.Textures?.Select(t => _textures.ManageTextureVote(t, userId, foodId));
+            var flavorTasks = request.Flavors?.Select(f => _attributes.ManageVote(f, userId, foodId, VotableAttributeType.Flavor));
+            var miscTasks = request.Miscellaneous?.Select(m => _attributes.ManageVote(m, userId, foodId, VotableAttributeType.Miscellaneous));
+            var textureTasks = request.Textures?.Select(t => _attributes.ManageVote(t, userId, foodId, VotableAttributeType.Texture));
 
             // TODO: Probably need error handling here
             foreach (var flavor in flavorTasks)
@@ -255,19 +251,6 @@ namespace MouthfeelAPIv2.Services
         }
 
         public async Task AddOrUpdateAttribute(AddOrUpdateVotableAttributeRequest request, int userId, VotableAttributeType type)
-        {
-            switch (type)
-            {
-                case VotableAttributeType.Flavor:
-                    await _flavors.ManageFlavorVote(request.AttributeId, userId, request.FoodId);
-                    break;
-                case VotableAttributeType.Texture:
-                    await _textures.ManageTextureVote(request.AttributeId, userId, request.FoodId);
-                    break;
-                case VotableAttributeType.Miscellaneous:
-                    await _misc.ManageMiscellaneousVote(request.AttributeId, userId, request.FoodId);
-                    break;
-            }
-        }
+            => await _attributes.ManageVote(request.AttributeId, userId, request.FoodId, type);
     }
 }

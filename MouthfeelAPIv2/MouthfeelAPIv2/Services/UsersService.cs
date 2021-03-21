@@ -15,10 +15,9 @@ namespace MouthfeelAPIv2.Services
 {
     public interface IUsersService
     {
+        Task<bool> UserExists(int userId);
         Task RegisterUser(CreateUserRequest request);
-
         Task<AuthenticateUserResponse> AuthenticateUser(AuthenticateUserRequest request);
-
         Task<UserDetails> GetUserDetails(int userId);
     }
 
@@ -30,6 +29,9 @@ namespace MouthfeelAPIv2.Services
         {
             _mouthfeel = mouthfeel;
         }
+
+        public async Task<bool> UserExists(int userId)
+            => _mouthfeel.Users.FirstOrDefault(u => u.Id == userId) != null;
 
         public async Task RegisterUser(CreateUserRequest request)
         {
