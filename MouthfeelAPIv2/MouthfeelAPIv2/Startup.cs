@@ -26,6 +26,7 @@ using Newtonsoft.Json;
 
 namespace MouthfeelAPIv2
 {
+    // TODO: need to add checks to endpoints to make sure a userId is given
     public class Startup
     {
         public Startup(IConfiguration configuration)

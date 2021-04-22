@@ -23,7 +23,6 @@ namespace MouthfeelAPIv2.Controllers
             _context = context;
         }
 
-        // TODO: Use lookup table instead
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Attribute>>> GetMiscellaneous
         (

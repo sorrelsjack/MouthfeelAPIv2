@@ -28,7 +28,7 @@ namespace MouthfeelAPIv2.Services
         Task<IEnumerable<FoodResponse>> GetFoodsToTry(int userId);
         Task<bool> GetFoodToTryStatus(int foodId, int userId);
         Task AddOrRemoveFoodToTry(int foodId, int userId);
-        Task AddOrUpdateAttribute(AddOrUpdateVotableAttributeRequest request, int userId, VotableAttributeType type);
+        Task<VotableAttribute> AddOrUpdateAttribute(AddOrUpdateVotableAttributeRequest request, int userId, VotableAttributeType type);
     }
 
     public class FoodsService : IFoodsService
@@ -250,7 +250,7 @@ namespace MouthfeelAPIv2.Services
             await _mouthfeel.SaveChangesAsync();
         }
 
-        public async Task AddOrUpdateAttribute(AddOrUpdateVotableAttributeRequest request, int userId, VotableAttributeType type)
+        public async Task<VotableAttribute> AddOrUpdateAttribute(AddOrUpdateVotableAttributeRequest request, int userId, VotableAttributeType type)
             => await _attributes.ManageVote(request.AttributeId, userId, request.FoodId, type);
     }
 }

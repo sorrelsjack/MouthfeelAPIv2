@@ -137,36 +137,33 @@ namespace MouthfeelAPIv2.Controllers
         }
 
         [HttpPost("{id}/flavors")]
-        public async Task<ActionResult<Food>> AddOrUpdateFoodFlavor
+        public async Task<ActionResult<VotableAttribute>> AddOrUpdateFoodFlavor
         (
             [FromServices] IFoodsService foodsService,
             [FromBody] AddOrUpdateVotableAttributeRequest request
         ) 
         {
-            await foodsService.AddOrUpdateAttribute(request, IdentityHelper.GetIdFromUser(User), VotableAttributeType.Flavor);
-            return NoContent();
+            return await foodsService.AddOrUpdateAttribute(request, IdentityHelper.GetIdFromUser(User), VotableAttributeType.Flavor);
         } 
 
         [HttpPost("{id}/textures")]
-        public async Task<ActionResult<Food>> AddOrUpdateFoodTexture
+        public async Task<ActionResult<VotableAttribute>> AddOrUpdateFoodTexture
         (
             [FromServices] IFoodsService foodsService,
             [FromBody] AddOrUpdateVotableAttributeRequest request
         )
         {
-            await foodsService.AddOrUpdateAttribute(request, IdentityHelper.GetIdFromUser(User), VotableAttributeType.Texture);
-            return NoContent();
+            return await foodsService.AddOrUpdateAttribute(request, IdentityHelper.GetIdFromUser(User), VotableAttributeType.Texture);
         }
 
         [HttpPost("{id}/miscellaneous")]
-        public async Task<ActionResult<Food>> AddOrUpdateFoodMiscellaneousAttribute
+        public async Task<ActionResult<VotableAttribute>> AddOrUpdateFoodMiscellaneousAttribute
         (
             [FromServices] IFoodsService foodsService,
             [FromBody] AddOrUpdateVotableAttributeRequest request
         )
         {
-            await foodsService.AddOrUpdateAttribute(request, IdentityHelper.GetIdFromUser(User), VotableAttributeType.Miscellaneous);
-            return NoContent();
+            return await foodsService.AddOrUpdateAttribute(request, IdentityHelper.GetIdFromUser(User), VotableAttributeType.Miscellaneous);
         }
     }
 }
