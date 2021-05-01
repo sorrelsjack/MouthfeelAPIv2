@@ -73,14 +73,13 @@ namespace MouthfeelAPIv2.Controllers
         ) => (await foodsService.GetDislikedFoods(IdentityHelper.GetIdFromUser(User))).ToList();
 
         [HttpPost("sentiment")]
-        public async Task<ActionResult> ManageFoodSentiment
+        public async Task<ActionResult<ManageFoodSentimentResponse>> ManageFoodSentiment
         (
             [FromServices] IFoodsService foodsService,
             [FromBody] ManageFoodSentimentRequest request
         )
         {
-            await foodsService.ManageFoodSentiment(request.FoodId, IdentityHelper.GetIdFromUser(User), request.Sentiment);
-            return NoContent();
+            return await foodsService.ManageFoodSentiment(request.FoodId, IdentityHelper.GetIdFromUser(User), request.Sentiment);
         }
 
         // TODO; Recommended

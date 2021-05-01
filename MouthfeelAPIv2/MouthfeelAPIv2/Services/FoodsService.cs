@@ -24,7 +24,7 @@ namespace MouthfeelAPIv2.Services
         Task<int> GetFoodSentiment(int foodId, int userId);
         Task<IEnumerable<FoodResponse>> GetLikedFoods(int userId);
         Task<IEnumerable<FoodResponse>> GetDislikedFoods(int userId);
-        Task ManageFoodSentiment(int foodId, int userId, Sentiment newSentiment);
+        Task<ManageFoodSentimentResponse> ManageFoodSentiment(int foodId, int userId, Sentiment newSentiment);
         Task<IEnumerable<FoodResponse>> GetFoodsToTry(int userId);
         Task<bool> GetFoodToTryStatus(int foodId, int userId);
         Task AddOrRemoveFoodToTry(int foodId, int userId);
@@ -71,6 +71,19 @@ namespace MouthfeelAPIv2.Services
 
         private async Task<IEnumerable<FoodResponse>> GetManyFoodDetails(IEnumerable<int> foodIds, int userId) =>
             await Task.WhenAll(foodIds.Select(f => GetFoodDetails(f, userId)));
+
+        /*private async Task<FoodSummaryResponse> GetFoodSummary(int foodId, int userId)
+        {
+            var food = await _mouthfeel.Foods.FindAsync(foodId);
+            var sentiment = await GetFoodSentiment(foodId, userId);
+            var toTry = await GetFoodToTryStatus(foodId, userId);
+            var topThree = await _attributes.GetTopThree(foodId, userId);
+
+            if (food == null)
+                throw new ErrorResponse(HttpStatusCode.NotFound, ErrorMessages.FoodNotFound, DescriptiveErrorCodes.FoodNotFound);
+
+            return new FoodSummaryResponse(food, sentiment, toTry, topThree);
+        }*/
 
         public async Task<IEnumerable<FoodResponse>> SearchFoods(string query, IEnumerable<string> searchFilter, int userId)
         {
@@ -204,7 +217,7 @@ namespace MouthfeelAPIv2.Services
         public async Task<IEnumerable<FoodResponse>> GetDislikedFoods(int userId)
             => await GetFoodsBySentiment(userId, Sentiment.Disliked);
 
-        public async Task ManageFoodSentiment(int foodId, int userId, Sentiment newSentiment)
+        public async Task<ManageFoodSentimentResponse> ManageFoodSentiment(int foodId, int userId, Sentiment newSentiment)
         {
             var sentiment = new FoodSentiment { FoodId = foodId, UserId = userId, Sentiment = (int)newSentiment };
             var existingSentimentFromUser = _mouthfeel.FoodSentiments.FirstOrDefault(s => s.FoodId == foodId && s.UserId == userId);
@@ -221,6 +234,7 @@ namespace MouthfeelAPIv2.Services
                 _mouthfeel.FoodSentiments.Add(sentiment);
 
             await _mouthfeel.SaveChangesAsync();
+            return new ManageFoodSentimentResponse { FoodId = foodId, UserId = userId, Sentiment = newSentiment };
         }
 
         public async Task<IEnumerable<FoodResponse>> GetFoodsToTry(int userId)

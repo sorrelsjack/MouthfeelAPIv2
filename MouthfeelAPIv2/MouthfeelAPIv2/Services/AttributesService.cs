@@ -18,6 +18,7 @@ namespace MouthfeelAPIv2.Services
         Task<IEnumerable<AttributeType>> GetAttributeTypes();
         Task<IEnumerable<Attribute>> GetAttributes(VotableAttributeType type);
         Task<IEnumerable<VotableAttribute>> GetVotes(int? foodId, int userId, VotableAttributeType type);
+        //Task<IEnumerable<VotableAttribute>> GetTopThree(int? foodId, int userId);
         Task<VotableAttribute> ManageVote(int attributeId, int userId, int foodId, VotableAttributeType type);
         Task<IEnumerable<Attribute>> SearchAttributes(string query, VotableAttributeType type);
     }
@@ -53,6 +54,11 @@ namespace MouthfeelAPIv2.Services
                     Sentiment = userVotes.FirstOrDefault(v => v.AttributeId == attr.Id)?.Vote ?? 0
                 }).DistinctBy(a => a.Id);
         }
+
+        /*public async Task<IEnumerable<VotableAttribute>> GetTopThree(int? foodId, int userId)
+        {
+            var votes = (await _mouthfeel.AttributeVotes.ToListAsync()).Where(m => m.FoodId == foodId).Aggregate(0, (total, next) => total + next.Vote);
+        }*/
 
         public async Task<VotableAttribute> ManageVote(int attributeId, int userId, int foodId, VotableAttributeType type)
         {
