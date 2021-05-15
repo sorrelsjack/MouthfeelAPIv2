@@ -84,13 +84,10 @@ namespace MouthfeelAPIv2.Controllers
 
         // TODO; Recommended
         [HttpGet("recommended")]
-        public async Task<ActionResult> GetRecommendedFoods
+        public async Task<ActionResult<IEnumerable<FoodResponse>>> GetRecommendedFoods
         (
             [FromServices] IFoodsService foodsService
-        )
-        {
-            return null;
-        }
+        ) => (await foodsService.GetRecommendedFoods(IdentityHelper.GetIdFromUser(User))).ToList();
 
         [HttpGet("to-try")]
         public async Task<ActionResult<IEnumerable<FoodResponse>>> GetFoodsToTry

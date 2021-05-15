@@ -26,6 +26,7 @@ namespace MouthfeelAPIv2.Services
         Task<IEnumerable<FoodResponse>> GetDislikedFoods(int userId);
         Task<ManageFoodSentimentResponse> ManageFoodSentiment(int foodId, int userId, Sentiment newSentiment);
         Task<IEnumerable<FoodResponse>> GetFoodsToTry(int userId);
+        Task<IEnumerable<FoodResponse>> GetRecommendedFoods(int userId);
         Task<bool> GetFoodToTryStatus(int foodId, int userId);
         Task AddOrRemoveFoodToTry(int foodId, int userId);
         Task<VotableAttribute> AddOrUpdateAttribute(AddOrUpdateVotableAttributeRequest request, int userId, VotableAttributeType type);
@@ -52,6 +53,12 @@ namespace MouthfeelAPIv2.Services
 
         public async Task<bool> FoodExists(int foodId)
             => (await _mouthfeel.Foods.ToListAsync()).Any(f => f.Id == foodId);
+
+        private async Task<IEnumerable<FoodResponse>> GetAllFoods(int userId)
+        {
+            var foodIds = await _mouthfeel.Foods.Select(f => f.Id).ToListAsync();
+            return await GetManyFoodDetails(foodIds, userId);
+        }
 
         public async Task<FoodResponse> GetFoodDetails(int foodId, int userId)
         {
@@ -241,6 +248,31 @@ namespace MouthfeelAPIv2.Services
         {
             var toTry = await (_mouthfeel.FoodsToTry.Where(f => f.UserId == userId)).ToListAsync();
             return await GetManyFoodDetails(toTry.Select(f => f.FoodId), userId);
+        }
+
+        public async Task<IEnumerable<FoodResponse>> GetRecommendedFoods(int userId)
+        {
+            IEnumerable<FoodResponse> GetCommonAttributes(IEnumerable<FoodResponse> source, IEnumerable<FoodResponse> toCompare)
+            {
+                var sourceIds = source.SelectMany(s => s.Flavors.Select(f => f.Id));
+                var toCompareIds = source.SelectMany(s => s.Flavors.Select(f => f.Id));
+
+                var common = sourceIds.Intersect(toCompareIds);
+
+                // do same for textures and misc
+
+                return null;
+            }
+
+            var allFoods = await GetAllFoods(userId);
+
+            var liked = allFoods.Where(f => f.Sentiment == (int)Sentiment.Liked);
+            var disliked = allFoods.Where(f => f.Sentiment == (int)Sentiment.Disliked);
+
+            var withoutSentiment = allFoods.Except(liked).Except(disliked);
+
+            return withoutSentiment;
+            // TODO: Compare with other foods. Consider recommending a food if it has at least one attribute in common. However, if a food contains a combo of attributes that a previously disliked food has, abort
         }
 
         public async Task<bool> GetFoodToTryStatus(int foodId, int userId)
