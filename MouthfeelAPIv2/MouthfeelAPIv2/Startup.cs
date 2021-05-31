@@ -66,6 +66,7 @@ namespace MouthfeelAPIv2
 
             services.AddScoped<IAttributesService, AttributesService>();
             services.AddScoped<IFoodsService, FoodsService>();
+            services.AddScoped<IImagesService, ImagesService>();
             services.AddScoped<IIngredientsService, IngredientsService>();
             services.AddScoped<ICommentsService, CommentsService>();
             services.AddScoped<IUsersService, UsersService>();

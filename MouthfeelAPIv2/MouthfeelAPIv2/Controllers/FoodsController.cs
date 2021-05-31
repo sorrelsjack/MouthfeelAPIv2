@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
@@ -122,11 +124,10 @@ namespace MouthfeelAPIv2.Controllers
         [HttpPost]
         public async Task<ActionResult<Food>> PostFood(
             [FromServices] IFoodsService foodsService,
-            [FromBody] CreateFoodRequest food
+            [FromForm] CreateFoodRequest food
         )
         {
             if (food.Name.IsNullOrWhitespace()) return BadRequest("A name must be entered.");
-            if (food.ImageUrl.IsNullOrWhitespace()) return BadRequest("An image URL must be associated with a food.");
 
             await foodsService.AddFood(food, IdentityHelper.GetIdFromUser(User));
             return NoContent();

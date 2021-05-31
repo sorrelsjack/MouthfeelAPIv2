@@ -40,15 +40,19 @@ namespace MouthfeelAPIv2.Services
 
         private readonly IAttributesService _attributes;
 
+        private readonly IImagesService _images;
+
         public FoodsService(
             MouthfeelContext mouthfeel,
             IIngredientsService ingredients,
-            IAttributesService attributes
+            IAttributesService attributes,
+            IImagesService images
         )
         {
             _mouthfeel = mouthfeel;
             _ingredients = ingredients;
             _attributes = attributes;
+            _images = images;
         }
 
         public async Task<bool> FoodExists(int foodId)
@@ -63,6 +67,7 @@ namespace MouthfeelAPIv2.Services
         public async Task<FoodResponse> GetFoodDetails(int foodId, int userId)
         {
             var food = await _mouthfeel.Foods.FindAsync(foodId);
+            var images = await _images.DownloadImages(foodId);
             var sentiment = await GetFoodSentiment(foodId, userId);
             var toTry = await GetFoodToTryStatus(foodId, userId);
             var ingredients = await _ingredients.GetIngredients(foodId);
@@ -73,7 +78,7 @@ namespace MouthfeelAPIv2.Services
             if (food == null)
                 throw new ErrorResponse(HttpStatusCode.NotFound, ErrorMessages.FoodNotFound, DescriptiveErrorCodes.FoodNotFound);
 
-            return new FoodResponse(food, sentiment, toTry, ingredients, flavors, textures, misc);
+            return new FoodResponse(food, images, sentiment, toTry, ingredients, flavors, textures, misc);
         }
 
         private async Task<IEnumerable<FoodResponse>> GetManyFoodDetails(IEnumerable<int> foodIds, int userId) =>
@@ -137,6 +142,9 @@ namespace MouthfeelAPIv2.Services
             return await GetManyFoodDetails(foods.Select(f => f.Id), userId);
         }
 
+        // TODO: Accept multipart form
+        // TODO: insert image into table created for this purpose
+        // TODO: Probably have a "get image" service
         public async Task AddFood(CreateFoodRequest request, int userId)
         {
             var foods = await _mouthfeel.Foods.ToListAsync();
@@ -144,21 +152,21 @@ namespace MouthfeelAPIv2.Services
             if (foods.Any(f => String.Equals(f.Name, request.Name, StringComparison.OrdinalIgnoreCase))) 
                 throw new ErrorResponse(HttpStatusCode.BadRequest, "A food with that name already exists.", DescriptiveErrorCodes.FoodAlreadyExists);
 
-            if (request.Flavors.Any())
+            if (request.Flavors?.Any() ?? false)
             {
                 var flavors = await _attributes.GetAttributes(VotableAttributeType.Flavor);
                 if (!request.Flavors.All(f => flavors.Select(fl => fl.Id).Contains(f)))
                     throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.FlavorDoesNotExist, DescriptiveErrorCodes.FlavorDoesNotExist);
             }
 
-            if (request.Miscellaneous.Any())
+            if (request.Miscellaneous?.Any() ?? false)
             {
                 var misc = await _attributes.GetAttributes(VotableAttributeType.Miscellaneous);
                 if (!request.Miscellaneous.All(m => misc.Select(ms => ms.Id).Contains(m)))
                     throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.MiscellaneousDoesNotExist, DescriptiveErrorCodes.MiscellaneousDoesNotExist);
             }
 
-            if (request.Textures.Any())
+            if (request.Textures?.Any() ?? false)
             {
                 var textures = await _attributes.GetAttributes(VotableAttributeType.Texture);
                 if (!request.Textures.All(t => textures.Select(tx => tx.Id).Contains(t)))
@@ -168,7 +176,7 @@ namespace MouthfeelAPIv2.Services
             var food = new Food 
             { 
                 Name = request.Name, 
-                ImageUrl = request.ImageUrl 
+                ImageUrl = ""
             };
 
             _mouthfeel.Foods.Add(food);
@@ -176,19 +184,34 @@ namespace MouthfeelAPIv2.Services
 
             var foodId = (await _mouthfeel.Foods.FirstOrDefaultAsync(f => f.Name == food.Name)).Id;
 
+            var imageRequest = new CreateFoodImageRequest
+            {
+                UserId = userId,
+                FoodId = foodId,
+                Image = request.Image
+            };
+            await _images.UploadImage(imageRequest);
+
             var flavorTasks = request.Flavors?.Select(f => _attributes.ManageVote(f, userId, foodId, VotableAttributeType.Flavor));
             var miscTasks = request.Miscellaneous?.Select(m => _attributes.ManageVote(m, userId, foodId, VotableAttributeType.Miscellaneous));
             var textureTasks = request.Textures?.Select(t => _attributes.ManageVote(t, userId, foodId, VotableAttributeType.Texture));
 
             // TODO: Probably need error handling here
-            foreach (var flavor in flavorTasks)
-                await flavor;
-
-            foreach (var misc in miscTasks)
-                await misc;
-
-            foreach (var texture in textureTasks)
-                await texture;
+            if (flavorTasks != null)
+            {
+                foreach (var flavor in flavorTasks)
+                    await flavor;
+            }
+            if (miscTasks != null)
+            {
+                foreach (var misc in miscTasks)
+                    await misc;
+            }
+            if (textureTasks != null)
+            {
+                foreach (var texture in textureTasks)
+                    await texture;
+            }
         }
 
         public async Task<int> GetFoodSentiment(int foodId, int userId) 

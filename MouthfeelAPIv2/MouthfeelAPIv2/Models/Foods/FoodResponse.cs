@@ -12,7 +12,7 @@ namespace MouthfeelAPIv2.Models
         public int Id { get; set; }
         public string Name { get; set; }
         public string ImageUrl { get; set; }
-
+        public IEnumerable<FoodImage> Images { get; set; }
         // TODO: Maybe make an enum for this
         public int Sentiment { get; set; }
         public bool ToTry { get; set; }
@@ -24,6 +24,7 @@ namespace MouthfeelAPIv2.Models
 
         public FoodResponse(
             Food food,
+            IEnumerable<FoodImage> images,
             int sentiment,
             bool toTry,
             IEnumerable<FoodIngredient> ingredients, 
@@ -35,6 +36,7 @@ namespace MouthfeelAPIv2.Models
             Id = food.Id;
             Name = food.Name;
             ImageUrl = food.ImageUrl;
+            Images = images;
             Sentiment = sentiment;
             ToTry = toTry;
             Ingredients = ingredients;
