@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -127,7 +128,7 @@ namespace MouthfeelAPIv2.Controllers
             [FromForm] CreateFoodRequest food
         )
         {
-            if (food.Name.IsNullOrWhitespace()) return BadRequest("A name must be entered.");
+            if (food.Name.IsNullOrWhitespace()) throw new ErrorResponse(HttpStatusCode.BadRequest, "A name must be entered.", DescriptiveErrorCodes.FoodMissingName);
 
             await foodsService.AddFood(food, IdentityHelper.GetIdFromUser(User));
             return NoContent();

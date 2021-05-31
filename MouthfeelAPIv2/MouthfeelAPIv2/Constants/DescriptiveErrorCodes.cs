@@ -16,6 +16,7 @@ namespace MouthfeelAPIv2.Constants
 
         public static string FoodNotFound = "FOOD_NOT_FOUND";
         public static string FoodAlreadyExists = "FOOD_ALREADY_EXISTS";
+        public static string FoodMissingName = "FOOD_NAME_MISSING";
 
         public static string UsernameTaken = "USERNAME_TAKEN";
         public static string EmailAlreadyRegistered = "EMAIL_ALREADY_REGISTERED";
