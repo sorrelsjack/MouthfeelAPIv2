@@ -123,15 +123,14 @@ namespace MouthfeelAPIv2.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<Food>> PostFood(
+        public async Task<ActionResult<FoodResponse>> PostFood(
             [FromServices] IFoodsService foodsService,
             [FromForm] CreateFoodRequest food
         )
         {
             if (food.Name.IsNullOrWhitespace()) throw new ErrorResponse(HttpStatusCode.BadRequest, "A name must be entered.", DescriptiveErrorCodes.FoodMissingName);
 
-            await foodsService.AddFood(food, IdentityHelper.GetIdFromUser(User));
-            return NoContent();
+            return await foodsService.AddFood(food, IdentityHelper.GetIdFromUser(User));
         }
 
         [HttpPost("{id}/flavors")]

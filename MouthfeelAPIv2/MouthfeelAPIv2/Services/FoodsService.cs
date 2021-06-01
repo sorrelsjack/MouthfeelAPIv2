@@ -20,7 +20,7 @@ namespace MouthfeelAPIv2.Services
         Task<bool> FoodExists(int foodId);
         Task<FoodResponse> GetFoodDetails(int foodId, int userId);
         Task<IEnumerable<FoodResponse>> SearchFoods(string query, IEnumerable<string> searchFilter, int userId);
-        Task AddFood(CreateFoodRequest request, int userId);
+        Task<FoodResponse> AddFood(CreateFoodRequest request, int userId);
         Task<int> GetFoodSentiment(int foodId, int userId);
         Task<IEnumerable<FoodResponse>> GetLikedFoods(int userId);
         Task<IEnumerable<FoodResponse>> GetDislikedFoods(int userId);
@@ -131,9 +131,10 @@ namespace MouthfeelAPIv2.Services
                 foods = foods.Concat(matchingFoods).ToArray();
             }
 
+            // TODO: fix 'second operation' error here
             if (searchFilter.Contains(FoodSearchType.Name))
             {
-                var byName = _mouthfeel.Foods.Where(f => f.Name == query);
+                var byName = (await _mouthfeel.Foods.ToListAsync()).Where(f => f.Name.ToLower().Contains(query.ToLower()));
                 foods = foods.Concat(byName).ToArray();
             }
 
@@ -142,10 +143,7 @@ namespace MouthfeelAPIv2.Services
             return await GetManyFoodDetails(foods.Select(f => f.Id), userId);
         }
 
-        // TODO: Accept multipart form
-        // TODO: insert image into table created for this purpose
-        // TODO: Probably have a "get image" service
-        public async Task AddFood(CreateFoodRequest request, int userId)
+        public async Task<FoodResponse> AddFood(CreateFoodRequest request, int userId)
         {
             var foods = await _mouthfeel.Foods.ToListAsync();
 
@@ -182,7 +180,8 @@ namespace MouthfeelAPIv2.Services
             _mouthfeel.Foods.Add(food);
             await _mouthfeel.SaveChangesAsync();
 
-            var foodId = (await _mouthfeel.Foods.FirstOrDefaultAsync(f => f.Name == food.Name)).Id;
+            var createdFood = await _mouthfeel.Foods.FirstOrDefaultAsync(f => f.Name == food.Name);
+            var foodId = createdFood.Id;
 
             var imageRequest = new CreateFoodImageRequest
             {
@@ -190,7 +189,7 @@ namespace MouthfeelAPIv2.Services
                 FoodId = foodId,
                 Image = request.Image
             };
-            await _images.UploadImage(imageRequest);
+            var image = await _images.UploadImage(imageRequest);
 
             var flavorTasks = request.Flavors?.Select(f => _attributes.ManageVote(f, userId, foodId, VotableAttributeType.Flavor));
             var miscTasks = request.Miscellaneous?.Select(m => _attributes.ManageVote(m, userId, foodId, VotableAttributeType.Miscellaneous));
@@ -212,6 +211,8 @@ namespace MouthfeelAPIv2.Services
                 foreach (var texture in textureTasks)
                     await texture;
             }
+
+            return await GetFoodDetails(foodId, userId);
         }
 
         public async Task<int> GetFoodSentiment(int foodId, int userId) 

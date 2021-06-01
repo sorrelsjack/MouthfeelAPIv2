@@ -10,7 +10,7 @@ namespace MouthfeelAPIv2.Services
 {
     public interface IImagesService
     {
-        Task UploadImage(CreateFoodImageRequest request);
+        Task<Models.FoodImage> UploadImage(CreateFoodImageRequest request);
         Task<IEnumerable<Models.FoodImage>> DownloadImages(int foodId);
     }
 
@@ -23,7 +23,7 @@ namespace MouthfeelAPIv2.Services
             _mouthfeel = mouthfeel;
         }
 
-        public async Task UploadImage(CreateFoodImageRequest request)
+        public async Task<Models.FoodImage> UploadImage(CreateFoodImageRequest request)
         {
             var img = new Models.FoodImage();
 
@@ -44,6 +44,8 @@ namespace MouthfeelAPIv2.Services
 
             _mouthfeel.FoodImages.Add(dbImage);
             await _mouthfeel.SaveChangesAsync();
+
+            return img;
         }
 
         private async Task DownloadImage(int foodId)
