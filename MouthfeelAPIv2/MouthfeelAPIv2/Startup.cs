@@ -41,6 +41,13 @@ namespace MouthfeelAPIv2
             ConfigureConstants();
             IdentityModelEventSource.ShowPII = true;
 
+            services.AddScoped<IAttributesService, AttributesService>();
+            services.AddScoped<IFoodsService, FoodsService>();
+            services.AddScoped<IImagesService, ImagesService>();
+            services.AddScoped<IIngredientsService, IngredientsService>();
+            services.AddScoped<ICommentsService, CommentsService>();
+            services.AddScoped<IUsersService, UsersService>();
+
             services.AddDbContext<MouthfeelContext>(opt => opt.UseSqlServer(Configuration["SqlDatabaseConnectionString"]), ServiceLifetime.Transient);
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
             {
@@ -64,12 +71,6 @@ namespace MouthfeelAPIv2
                 };
             });
 
-            services.AddScoped<IAttributesService, AttributesService>();
-            services.AddScoped<IFoodsService, FoodsService>();
-            services.AddScoped<IImagesService, ImagesService>();
-            services.AddScoped<IIngredientsService, IngredientsService>();
-            services.AddScoped<ICommentsService, CommentsService>();
-            services.AddScoped<IUsersService, UsersService>();
             services.AddControllers();
         }
 

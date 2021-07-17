@@ -11,6 +11,7 @@ namespace MouthfeelAPIv2.Services
     public interface IIngredientsService
     {
         Task<IEnumerable<FoodIngredient>> GetIngredients(int foodId);
+        Task<IEnumerable<FoodIngredient>> GetManyIngredients(IEnumerable<int> foodId);
         Task<IEnumerable<Ingredient>> SearchIngredients(string query);
     }
 
@@ -29,6 +30,19 @@ namespace MouthfeelAPIv2.Services
             var ingredients = await _mouthfeel.Ingredients.ToListAsync();
 
             return ingredients.Join(compositions, ingredient => ingredient.Id, composition => composition.IngredientId, (ingredient, composition) => 
+                new FoodIngredient
+                {
+                    Name = ingredient.Name,
+                    Quantity = composition.Quantity
+                });
+        }
+
+        public async Task<IEnumerable<FoodIngredient>> GetManyIngredients(IEnumerable<int> foodIds)
+        {
+            var compositions = (await _mouthfeel.FoodCompositions.ToListAsync()).Where(i => foodIds.Any(f => f == i.FoodId));
+            var ingredients = await _mouthfeel.Ingredients.ToListAsync();
+
+            return ingredients.Join(compositions, ingredient => ingredient.Id, composition => composition.IngredientId, (ingredient, composition) =>
                 new FoodIngredient
                 {
                     Name = ingredient.Name,

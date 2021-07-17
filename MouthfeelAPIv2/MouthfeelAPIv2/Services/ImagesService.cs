@@ -12,6 +12,7 @@ namespace MouthfeelAPIv2.Services
     {
         Task<Models.FoodImage> UploadImage(CreateFoodImageRequest request);
         Task<IEnumerable<Models.FoodImage>> DownloadImages(int foodId);
+        Task<IEnumerable<Models.FoodImage>> DownloadImagesForManyFoods(IEnumerable<int> foodIds);
     }
 
     public class ImagesService : IImagesService
@@ -56,6 +57,13 @@ namespace MouthfeelAPIv2.Services
         public async Task<IEnumerable<Models.FoodImage>> DownloadImages(int foodId)
         {
             var dbImgs = _mouthfeel.FoodImages.Where(i => i.FoodId == foodId);
+            return dbImgs.Select(i => new Models.FoodImage { Id = i.Id, UserId = i.UserId, FoodId = i.FoodId, Image = i.Image });
+            //var imgData = base64.Select(i => new Models.FoodImage { Id = i.Id, UserId = i.UserId, FoodId = i.FoodId, Image = string.Format("data:image/jpg;base64, {0}"), i.Base64Image });
+        }
+
+        public async Task<IEnumerable<Models.FoodImage>> DownloadImagesForManyFoods(IEnumerable<int> foodIds)
+        {
+            var dbImgs = _mouthfeel.FoodImages.Where(i => foodIds.Any(id => id == i.FoodId));
             return dbImgs.Select(i => new Models.FoodImage { Id = i.Id, UserId = i.UserId, FoodId = i.FoodId, Image = i.Image });
             //var imgData = base64.Select(i => new Models.FoodImage { Id = i.Id, UserId = i.UserId, FoodId = i.FoodId, Image = string.Format("data:image/jpg;base64, {0}"), i.Base64Image });
         }

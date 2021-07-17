@@ -18,6 +18,7 @@ namespace MouthfeelAPIv2.Services
         Task<IEnumerable<AttributeType>> GetAttributeTypes();
         Task<IEnumerable<Attribute>> GetAttributes(VotableAttributeType type);
         Task<IEnumerable<VotableAttribute>> GetVotes(int? foodId, int userId, VotableAttributeType type);
+        Task<Dictionary<int, IEnumerable<VotableAttribute>>> GetManyVotes(IEnumerable<int> foodId, int userId, VotableAttributeType type);
         //Task<IEnumerable<VotableAttribute>> GetTopThree(int? foodId, int userId);
         Task<VotableAttribute> ManageVote(int attributeId, int userId, int foodId, VotableAttributeType type);
         Task<IEnumerable<Attribute>> SearchAttributes(string query, VotableAttributeType type);
@@ -53,6 +54,32 @@ namespace MouthfeelAPIv2.Services
                     Votes = votes.Where(v => v.AttributeId == attr.Id).Aggregate(0, (total, next) => total + next.Vote),
                     Sentiment = userVotes.FirstOrDefault(v => v.AttributeId == attr.Id)?.Vote ?? 0
                 }).DistinctBy(a => a.Id);
+        }
+
+        public async Task<Dictionary<int, IEnumerable<VotableAttribute>>> GetManyVotes(IEnumerable<int> foodIds, int userId, VotableAttributeType type)
+        {
+            var records = new Dictionary<int, IEnumerable<VotableAttribute>>();
+
+            foreach (var id in foodIds)
+            {
+                var votes = (await _mouthfeel.AttributeVotes.ToListAsync()).Where(m => m.FoodId == id);
+                var userVotes = votes.Where(v => v.UserId == userId);
+                var attributes = await GetAttributes(type);
+
+                var joined = attributes.Join(votes, attr => attr.Id, vote => vote.AttributeId, (attr, vote) =>
+                                new VotableAttribute
+                                {
+                                    Id = attr.Id,
+                                    Name = attr.Name,
+                                    Description = attr.Description,
+                                    Votes = votes.Where(v => v.AttributeId == attr.Id).Aggregate(0, (total, next) => total + next.Vote),
+                                    Sentiment = userVotes.FirstOrDefault(v => v.AttributeId == attr.Id)?.Vote ?? 0
+                                }).DistinctBy(a => a.Id);
+
+                records.Add(id, joined);
+            }
+
+            return records;
         }
 
         /*public async Task<IEnumerable<VotableAttribute>> GetTopThree(int? foodId, int userId)
