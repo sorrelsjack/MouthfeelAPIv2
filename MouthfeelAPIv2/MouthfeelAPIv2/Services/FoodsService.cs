@@ -11,6 +11,7 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using System.Web.Http;
+using Attribute = MouthfeelAPIv2.DbModels.Attribute;
 using FoodSearchType = MouthfeelAPIv2.Constants.FoodSearchType;
 
 namespace MouthfeelAPIv2.Services
@@ -128,21 +129,50 @@ namespace MouthfeelAPIv2.Services
             return list;
         }*/
 
-        /*private async Task<FoodSummaryResponse> GetFoodSummary(int foodId, int userId)
+        private async Task<FoodSummaryResponse> GetFoodSummary(int foodId, int userId)
         {
             var food = await _mouthfeel.Foods.FindAsync(foodId);
             var sentiment = await GetFoodSentiment(foodId, userId);
             var toTry = await GetFoodToTryStatus(foodId, userId);
-            var topThree = await _attributes.GetTopThree(foodId, userId);
+            var topThree = await _attributes.GetTopThree(foodId);
+            var images = await _images.DownloadImages(foodId);
 
             if (food == null)
                 throw new ErrorResponse(HttpStatusCode.NotFound, ErrorMessages.FoodNotFound, DescriptiveErrorCodes.FoodNotFound);
 
-            return new FoodSummaryResponse(food, sentiment, toTry, topThree);
-        }*/
+            return new FoodSummaryResponse(food, images, sentiment, toTry, topThree);
+        }
+
+        private async Task<IEnumerable<FoodSummaryResponse>> GetManyFoodSummaries(IEnumerable<int> foodIds, int userId)
+        {
+            var list = Enumerable.Empty<FoodSummaryResponse>();
+            var foods = foodIds.Select(i => _mouthfeel.Foods.Find(i));
+
+            if (foods == null)
+                throw new ErrorResponse(HttpStatusCode.NotFound, ErrorMessages.FoodNotFound, DescriptiveErrorCodes.FoodNotFound);
+
+            var images = await _images.DownloadImagesForManyFoods(foodIds);
+            var sentiments = await GetManyFoodSentiments(foodIds, userId);
+            var toTry = await GetManyFoodToTryStatuses(foodIds, userId);
+            var topThrees = await _attributes.GetManyTopThrees(foodIds);
+
+            foreach (var id in foodIds)
+            {
+                var food = foods.FirstOrDefault(f => f.Id == id);
+                var imgs = images.Where(i => i.Id == id);
+                var sentiment = sentiments.FirstOrDefault(s => s.Key == id).Value;
+                var forTry = toTry.FirstOrDefault(t => t.Key == id).Value;
+                var topThree = topThrees.FirstOrDefault(t => t.Key == id).Value;
+
+                list = list.Append(new FoodSummaryResponse(food, imgs, sentiment, forTry, topThree));
+            }
+
+            return list;
+        }
 
 
         // TODO: Fix search, its throwing the "second operation" error
+        // TODO: Searching for 'test' is super slow
         public async Task<IEnumerable<FoodResponse>> SearchFoods(string query, IEnumerable<string> searchFilter, int userId)
         {
             var foods = new Food[] { };
@@ -337,29 +367,48 @@ namespace MouthfeelAPIv2.Services
             return await GetManyFoodDetails(toTry.Select(f => f.FoodId), userId);
         }
 
+        // TODO: Optimize this. It works, but it's slow
         public async Task<IEnumerable<FoodResponse>> GetRecommendedFoods(int userId)
         {
             IEnumerable<FoodResponse> GetCommonAttributes(IEnumerable<FoodResponse> source, IEnumerable<FoodResponse> toCompare)
             {
-                var sourceIds = source.SelectMany(s => s.Flavors.Select(f => f.Id));
-                var toCompareIds = source.SelectMany(s => s.Flavors.Select(f => f.Id));
+                var sourceFlavorIds = source.SelectMany(s => s.Flavors.Select(f => f.Id));
+                var toCompareFlavorIds = toCompare.SelectMany(s => s.Flavors.Select(f => f.Id));
 
-                var common = sourceIds.Intersect(toCompareIds);
+                var sourceTextureIds = source.SelectMany(s => s.Textures.Select(f => f.Id));
+                var toCompareTextureIds = toCompare.SelectMany(s => s.Textures.Select(f => f.Id));
 
-                // do same for textures and misc
+                var sourceMiscIds = source.SelectMany(s => s.Miscellaneous.Select(f => f.Id));
+                var toCompareMiscIds = toCompare.SelectMany(s => s.Miscellaneous.Select(f => f.Id));
 
-                return null;
+                var commonFlavorIds = sourceFlavorIds.Intersect(toCompareFlavorIds);
+                var commonTextureIds = sourceTextureIds.Intersect(toCompareTextureIds);
+                var commonMiscIds = sourceMiscIds.Intersect(toCompareMiscIds);
+
+                var combinedFlavors = toCompare
+                    .Where(a => a.Flavors.Any(f => commonFlavorIds.Contains(f.Id)));
+
+                var combinedTextures = toCompare
+                    .Where(a => a.Textures.Any(f => commonTextureIds.Contains(f.Id)));
+
+                var combinedMisc = toCompare
+                    .Where(a => a.Miscellaneous.Any(f => commonMiscIds.Contains(f.Id)));
+
+                return combinedFlavors.Concat(combinedTextures).Concat(combinedMisc);
             }
 
             var allFoods = await GetAllFoods(userId);
 
             var liked = allFoods.Where(f => f.Sentiment == (int)Sentiment.Liked);
             var disliked = allFoods.Where(f => f.Sentiment == (int)Sentiment.Disliked);
+            var toTry = allFoods.Where(f => f.ToTry == true);
 
-            var withoutSentiment = allFoods.Except(liked).Except(disliked);
+            var withoutSentiment = allFoods.Except(liked).Except(disliked).Except(toTry);
 
-            return withoutSentiment;
-            // TODO: Compare with other foods. Consider recommending a food if it has at least one attribute in common. However, if a food contains a combo of attributes that a previously disliked food has, abort
+            var comparedWithLiked = GetCommonAttributes(liked, withoutSentiment);
+            var comparedWithDisliked = GetCommonAttributes(disliked, withoutSentiment);
+
+            return comparedWithLiked.Except(comparedWithDisliked);
         }
 
         public async Task<bool> GetFoodToTryStatus(int foodId, int userId)

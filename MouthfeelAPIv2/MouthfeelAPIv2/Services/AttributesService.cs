@@ -19,7 +19,8 @@ namespace MouthfeelAPIv2.Services
         Task<IEnumerable<Attribute>> GetAttributes(VotableAttributeType type);
         Task<IEnumerable<VotableAttribute>> GetVotes(int? foodId, int userId, VotableAttributeType type);
         Task<Dictionary<int, IEnumerable<VotableAttribute>>> GetManyVotes(IEnumerable<int> foodId, int userId, VotableAttributeType type);
-        //Task<IEnumerable<VotableAttribute>> GetTopThree(int? foodId, int userId);
+        Task<IEnumerable<Attribute>> GetTopThree(int? foodId);
+        Task<Dictionary<int, IEnumerable<Attribute>>> GetManyTopThrees(IEnumerable<int> foodIds);
         Task<VotableAttribute> ManageVote(int attributeId, int userId, int foodId, VotableAttributeType type);
         Task<IEnumerable<Attribute>> SearchAttributes(string query, VotableAttributeType type);
     }
@@ -82,10 +83,41 @@ namespace MouthfeelAPIv2.Services
             return records;
         }
 
-        /*public async Task<IEnumerable<VotableAttribute>> GetTopThree(int? foodId, int userId)
+        public async Task<IEnumerable<Attribute>> GetTopThree(int? foodId)
         {
-            var votes = (await _mouthfeel.AttributeVotes.ToListAsync()).Where(m => m.FoodId == foodId).Aggregate(0, (total, next) => total + next.Vote);
-        }*/
+            Dictionary<int, int> aggregated = new Dictionary<int, int>();
+
+            var votes = (await _mouthfeel.AttributeVotes.ToListAsync()).Where(m => m.FoodId == foodId).GroupBy(v => v.AttributeId);
+            var attributes = (await _mouthfeel.Attributes.ToListAsync());
+
+            foreach (var vote in votes)
+                aggregated.Add(vote.Key, vote.Aggregate(0, (total, next) => total + next.Vote));
+
+            var topThree = aggregated.OrderByDescending(kvp => kvp.Value).Take(3);
+            return attributes.Where(a => topThree.Select(t => t.Key).Contains(a.Id));
+        }
+
+        public async Task<Dictionary<int, IEnumerable<Attribute>>> GetManyTopThrees(IEnumerable<int> foodIds)
+        {
+            Dictionary<int, int> aggregated = new Dictionary<int, int>();
+            Dictionary<int, IEnumerable<Attribute>> topThrees = new Dictionary<int, IEnumerable<Attribute>>();
+
+            var attributes = (await _mouthfeel.Attributes.ToListAsync());
+
+            foreach (var id in foodIds)
+            {
+                var votes = (await _mouthfeel.AttributeVotes.ToListAsync()).Where(m => m.FoodId == id).GroupBy(v => v.AttributeId);
+
+                foreach (var vote in votes)
+                    aggregated.Add(vote.Key, vote.Aggregate(0, (total, next) => total + next.Vote));
+
+                var topThree = aggregated.OrderByDescending(kvp => kvp.Value).Take(3);
+
+                topThrees.Add(id, attributes.Where(a => topThree.Select(t => t.Key).Contains(a.Id)));
+            }
+
+            return topThrees;
+        }
 
         public async Task<VotableAttribute> ManageVote(int attributeId, int userId, int foodId, VotableAttributeType type)
         {
