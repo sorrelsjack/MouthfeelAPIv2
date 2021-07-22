@@ -102,7 +102,7 @@ namespace MouthfeelAPIv2.Services
             foreach (var id in foodIds)
             {
                 var food = foods.FirstOrDefault(f => f.Id == id);
-                var imgs = images.Where(i => i.Id == id);
+                var imgs = images.Where(i => i.FoodId == id);
                 var sentiment = sentiments.FirstOrDefault(s => s.Key == id).Value;
                 var forTry = toTry.FirstOrDefault(t => t.Key == id).Value;
                 // ingredients
