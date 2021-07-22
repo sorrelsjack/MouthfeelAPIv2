@@ -45,15 +45,14 @@ namespace MouthfeelAPIv2.Controllers
         }
 
         [HttpPut]
-        public async Task<ActionResult> ManageCommentVote
+        public async Task<ActionResult<CommentResponse>> ManageCommentVote
         (
             [FromServices] ICommentsService commentsService,
             [FromBody] ManageCommentVoteRequest request
         )
         {
             request.UserId = IdentityHelper.GetIdFromUser(User);
-            await commentsService.ManageCommentVote(request.CommentId, request.UserId, request.FoodId, request.Vote);
-            return NoContent();
+            return await commentsService.ManageCommentVote(request.CommentId, request.UserId, request.FoodId, request.Vote);
         }
 
         // TODO: Delete comment

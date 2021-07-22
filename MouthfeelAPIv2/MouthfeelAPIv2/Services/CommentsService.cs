@@ -16,7 +16,7 @@ namespace MouthfeelAPIv2.Services
     {
         Task<CommentResponse> CreateComment(CreateCommentRequest request);
         Task DeleteComment();
-        Task<CommentVote> ManageCommentVote(int commentId, int userId, int foodId, VoteState voteState);
+        Task<CommentResponse> ManageCommentVote(int commentId, int userId, int foodId, VoteState voteState);
         Task<IEnumerable<CommentResponse>> GetCommentsByFood(int foodId, int userId);
         Task<IEnumerable<CommentResponse>> GetCommentsByUser(int userId);
     }
@@ -71,7 +71,7 @@ namespace MouthfeelAPIv2.Services
         }
 
 
-        public async Task<CommentVote> ManageCommentVote(int commentId, int userId, int foodId, VoteState voteState)
+        public async Task<CommentResponse> ManageCommentVote(int commentId, int userId, int foodId, VoteState voteState)
         {
             var commentVotes = await _mouthfeel.CommentVotes.ToListAsync();
             var comments = await GetCommentsByFood(foodId, userId);
@@ -103,7 +103,7 @@ namespace MouthfeelAPIv2.Services
 
             await _mouthfeel.SaveChangesAsync();
 
-            return newVote;
+            return (await GetCommentsByFood(foodId, userId)).FirstOrDefault(c => c.Id == commentId);
         }
 
         public async Task<IEnumerable<CommentResponse>> GetCommentsByFood(int foodId, int userId)
