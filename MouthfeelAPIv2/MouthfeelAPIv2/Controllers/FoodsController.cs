@@ -85,7 +85,6 @@ namespace MouthfeelAPIv2.Controllers
             return await foodsService.ManageFoodSentiment(request.FoodId, IdentityHelper.GetIdFromUser(User), request.Sentiment);
         }
 
-        // TODO; Recommended
         [HttpGet("recommended")]
         public async Task<ActionResult<IEnumerable<FoodResponse>>> GetRecommendedFoods
         (

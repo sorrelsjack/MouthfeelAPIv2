@@ -159,7 +159,7 @@ namespace MouthfeelAPIv2.Services
             foreach (var id in foodIds)
             {
                 var food = foods.FirstOrDefault(f => f.Id == id);
-                var imgs = images.Where(i => i.Id == id);
+                var imgs = images.Where(i => i.FoodId == id);
                 var sentiment = sentiments.FirstOrDefault(s => s.Key == id).Value;
                 var forTry = toTry.FirstOrDefault(t => t.Key == id).Value;
                 var topThree = topThrees.FirstOrDefault(t => t.Key == id).Value;
@@ -173,6 +173,7 @@ namespace MouthfeelAPIv2.Services
 
         // TODO: Fix search, its throwing the "second operation" error
         // TODO: Searching for 'test' is super slow
+        // TODO: GroupJoin to make things faster
         public async Task<IEnumerable<FoodResponse>> SearchFoods(string query, IEnumerable<string> searchFilter, int userId)
         {
             var foods = new Food[] { };
