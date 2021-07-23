@@ -1,4 +1,5 @@
-﻿using MouthfeelAPIv2.DbModels;
+﻿using Microsoft.EntityFrameworkCore;
+using MouthfeelAPIv2.DbModels;
 using MouthfeelAPIv2.Models;
 using System;
 using System.Collections.Generic;
@@ -17,11 +18,13 @@ namespace MouthfeelAPIv2.Services
 
     public class ImagesService : IImagesService
     {
+        private readonly IMouthfeelContextFactory _mouthfeelContextFactory;
         private readonly MouthfeelContext _mouthfeel;
 
-        public ImagesService(MouthfeelContext mouthfeel)
+        public ImagesService(IMouthfeelContextFactory mouthfeelContextFactory)
         {
-            _mouthfeel = mouthfeel;
+            _mouthfeelContextFactory = mouthfeelContextFactory;
+            _mouthfeel = _mouthfeelContextFactory.CreateContext();
         }
 
         public async Task<Models.FoodImage> UploadImage(CreateFoodImageRequest request)

@@ -42,8 +42,9 @@ namespace MouthfeelAPIv2.Controllers
             return await _context.Foods.OrderBy(f => f.Name).ToListAsync();
         }
 
+
         [HttpGet("search")]
-        public async Task<ActionResult<IEnumerable<FoodResponse>>> SearchFoods
+        public async Task<ActionResult<IEnumerable<FoodSummaryResponse>>> SearchFoods
         (
             [FromServices] IFoodsService foodsService,
             [FromQuery] string query,

@@ -17,17 +17,19 @@ namespace MouthfeelAPIv2.Services
 
     public class IngredientsService : IIngredientsService
     {
+        private readonly IMouthfeelContextFactory _mouthfeelContextFactory;
         private readonly MouthfeelContext _mouthfeel;
 
-        public IngredientsService(MouthfeelContext mouthfeel)
+        public IngredientsService(IMouthfeelContextFactory mouthfeelContextFactory)
         {
-            _mouthfeel = mouthfeel;
+            _mouthfeelContextFactory = mouthfeelContextFactory;
+            _mouthfeel = _mouthfeelContextFactory.CreateContext();
         }
 
         public async Task<IEnumerable<FoodIngredient>> GetIngredients(int foodId)
         {
-            var compositions = (await _mouthfeel.FoodCompositions.ToListAsync()).Where(i => i.FoodId == foodId);
-            var ingredients = await _mouthfeel.Ingredients.ToListAsync();
+            var compositions = _mouthfeel.FoodCompositions.Where(i => i.FoodId == foodId);
+            var ingredients = _mouthfeel.Ingredients;
 
             return ingredients.Join(compositions, ingredient => ingredient.Id, composition => composition.IngredientId, (ingredient, composition) => 
                 new FoodIngredient

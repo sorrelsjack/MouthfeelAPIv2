@@ -48,7 +48,8 @@ namespace MouthfeelAPIv2
             services.AddScoped<ICommentsService, CommentsService>();
             services.AddScoped<IUsersService, UsersService>();
 
-            services.AddDbContext<MouthfeelContext>(opt => opt.UseSqlServer(Configuration["SqlDatabaseConnectionString"]), ServiceLifetime.Transient);
+            services.AddScoped<IMouthfeelContextFactory>(x => new MouthfeelContextFactory(Configuration["SqlDatabaseConnectionString"]));
+            services.AddDbContext<MouthfeelContext>(opt => opt.UseSqlServer(Configuration["SqlDatabaseConnectionString"]));
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
             {
                 options.RequireHttpsMetadata = false;

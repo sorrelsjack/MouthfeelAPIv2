@@ -38,12 +38,12 @@ namespace MouthfeelAPIv2.Services
             => await _mouthfeel.AttributeTypes.ToListAsync();
 
         public async Task<IEnumerable<Attribute>> GetAttributes(VotableAttributeType type)
-            => await _mouthfeel.Attributes.Where(a => a.TypeId == (int)type).ToListAsync();
+            => _mouthfeel.Attributes.Where(a => a.TypeId == (int)type);
 
         public async Task<IEnumerable<VotableAttribute>> GetVotes(int? foodId, int userId, VotableAttributeType type)
         {
-            var votes = (await _mouthfeel.AttributeVotes.ToListAsync()).Where(m => m.FoodId == foodId);
-            var userVotes = votes.Where(v => v.UserId == userId);
+            var votes = _mouthfeel.AttributeVotes.Where(m => m.FoodId == foodId).ToList();
+            var userVotes = votes.Where(v => v.UserId == userId).ToList();
             var attributes = await GetAttributes(type);
 
             return attributes.Join(votes, attr => attr.Id, vote => vote.AttributeId, (attr, vote) =>
@@ -87,8 +87,8 @@ namespace MouthfeelAPIv2.Services
         {
             Dictionary<int, int> aggregated = new Dictionary<int, int>();
 
-            var votes = (await _mouthfeel.AttributeVotes.ToListAsync()).Where(m => m.FoodId == foodId).GroupBy(v => v.AttributeId);
-            var attributes = (await _mouthfeel.Attributes.ToListAsync());
+            var votes = _mouthfeel.AttributeVotes.Where(m => m.FoodId == foodId).ToList().GroupBy(v => v.AttributeId);
+            var attributes = _mouthfeel.Attributes;
 
             foreach (var vote in votes)
                 aggregated.Add(vote.Key, vote.Aggregate(0, (total, next) => total + next.Vote));

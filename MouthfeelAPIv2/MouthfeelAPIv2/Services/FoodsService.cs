@@ -20,7 +20,7 @@ namespace MouthfeelAPIv2.Services
     {
         Task<bool> FoodExists(int foodId);
         Task<FoodResponse> GetFoodDetails(int foodId, int userId);
-        Task<IEnumerable<FoodResponse>> SearchFoods(string query, IEnumerable<string> searchFilter, int userId);
+        Task<IEnumerable<FoodSummaryResponse>> SearchFoods(string query, IEnumerable<string> searchFilter, int userId);
         Task<FoodResponse> AddFood(CreateFoodRequest request, int userId);
         Task<int> GetFoodSentiment(int foodId, int userId);
         Task<IEnumerable<FoodResponse>> GetLikedFoods(int userId);
@@ -36,6 +36,8 @@ namespace MouthfeelAPIv2.Services
 
     public class FoodsService : IFoodsService
     {
+        private readonly IMouthfeelContextFactory _mouthfeelContextFactory;
+
         private readonly MouthfeelContext _mouthfeel;
 
         private readonly IIngredientsService _ingredients;
@@ -45,13 +47,14 @@ namespace MouthfeelAPIv2.Services
         private readonly IImagesService _images;
 
         public FoodsService(
-            MouthfeelContext mouthfeel,
+            IMouthfeelContextFactory mouthfeelContextFactory,
             IIngredientsService ingredients,
             IAttributesService attributes,
             IImagesService images
         )
         {
-            _mouthfeel = mouthfeel;
+            _mouthfeelContextFactory = mouthfeelContextFactory;
+            _mouthfeel = _mouthfeelContextFactory.CreateContext();
             _ingredients = ingredients;
             _attributes = attributes;
             _images = images;
@@ -68,82 +71,49 @@ namespace MouthfeelAPIv2.Services
 
         public async Task<FoodResponse> GetFoodDetails(int foodId, int userId)
         {
-            var food = await _mouthfeel.Foods.FindAsync(foodId);
-            var images = await _images.DownloadImages(foodId);
-            var sentiment = await GetFoodSentiment(foodId, userId);
-            var toTry = await GetFoodToTryStatus(foodId, userId);
-            var ingredients = await _ingredients.GetIngredients(foodId);
-            var textures = await _attributes.GetVotes(foodId, userId, VotableAttributeType.Texture);
-            var flavors = await _attributes.GetVotes(foodId, userId, VotableAttributeType.Flavor);
-            var misc = await _attributes.GetVotes(foodId, userId, VotableAttributeType.Miscellaneous);
+            using (var scope = _mouthfeelContextFactory.CreateContext())
+            {
+                var food = await _mouthfeel.Foods.FindAsync(foodId);
+                var images = await _images.DownloadImages(foodId);
+                var sentiment = await GetFoodSentiment(foodId, userId);
+                var toTry = await GetFoodToTryStatus(foodId, userId);
+                var ingredients = await _ingredients.GetIngredients(foodId);
+                var textures = await _attributes.GetVotes(foodId, userId, VotableAttributeType.Texture);
+                var flavors = await _attributes.GetVotes(foodId, userId, VotableAttributeType.Flavor);
+                var misc = await _attributes.GetVotes(foodId, userId, VotableAttributeType.Miscellaneous);
 
-            if (food == null)
-                throw new ErrorResponse(HttpStatusCode.NotFound, ErrorMessages.FoodNotFound, DescriptiveErrorCodes.FoodNotFound);
+                if (food == null)
+                    throw new ErrorResponse(HttpStatusCode.NotFound, ErrorMessages.FoodNotFound, DescriptiveErrorCodes.FoodNotFound);
 
-            return new FoodResponse(food, images, sentiment, toTry, ingredients, flavors, textures, misc);
+                return new FoodResponse(food, images, sentiment, toTry, ingredients, textures, flavors, misc);
+            }
         }
 
-        private async Task<IEnumerable<FoodResponse>> GetManyFoodDetails(IEnumerable<int> foodIds, int userId)
-        {
-            var list = Enumerable.Empty<FoodResponse>();
-            var foods = foodIds.Select(i => _mouthfeel.Foods.Find(i));
+        private async Task<IEnumerable<FoodResponse>> GetManyFoodDetails(IEnumerable<int> foodIds, int userId) =>
+            await Task.WhenAll(foodIds.Select(f => GetFoodDetails(f, userId)));
 
-            if (foods == null)
-                throw new ErrorResponse(HttpStatusCode.NotFound, ErrorMessages.FoodNotFound, DescriptiveErrorCodes.FoodNotFound);
-
-            var images = await _images.DownloadImagesForManyFoods(foodIds);
-            var sentiments = await GetManyFoodSentiments(foodIds, userId);
-            var toTry = await GetManyFoodToTryStatuses(foodIds, userId);
-            var ingredients = await _ingredients.GetManyIngredients(foodIds);
-            var textures = await _attributes.GetManyVotes(foodIds, userId, VotableAttributeType.Texture);
-            var flavors = await _attributes.GetManyVotes(foodIds, userId, VotableAttributeType.Flavor);
-            var misc = await _attributes.GetManyVotes(foodIds, userId, VotableAttributeType.Miscellaneous);
-
-            foreach (var id in foodIds)
-            {
-                var food = foods.FirstOrDefault(f => f.Id == id);
-                var imgs = images.Where(i => i.FoodId == id);
-                var sentiment = sentiments.FirstOrDefault(s => s.Key == id).Value;
-                var forTry = toTry.FirstOrDefault(t => t.Key == id).Value;
-                // ingredients
-                var txts = textures.FirstOrDefault(t => t.Key == id).Value;
-                var flvs = flavors.FirstOrDefault(f => f.Key == id).Value;
-                var miscs = misc.FirstOrDefault(m => m.Key == id).Value;
-
-                list = list.Append(new FoodResponse(food, imgs, sentiment, forTry, ingredients, flvs, txts, miscs));
-            }
-
-            return list;
-        }
-
-        /*private async Task<IEnumerable<FoodResponse>> GetManyFoodDetails(IEnumerable<int> foodIds, int userId)
-        {
-            var list = Enumerable.Empty<FoodResponse>();
-
-            foreach (var id in foodIds)
-            {
-                var res = await GetFoodDetails(id, userId);
-                list.Append(res);
-            }
-
-            return list;
-        }*/
 
         private async Task<FoodSummaryResponse> GetFoodSummary(int foodId, int userId)
         {
-            var food = await _mouthfeel.Foods.FindAsync(foodId);
-            var sentiment = await GetFoodSentiment(foodId, userId);
-            var toTry = await GetFoodToTryStatus(foodId, userId);
-            var topThree = await _attributes.GetTopThree(foodId);
-            var images = await _images.DownloadImages(foodId);
+            using (var scope = _mouthfeelContextFactory.CreateContext())
+            {
+                var food = await _mouthfeel.Foods.FindAsync(foodId);
+                var sentiment = await GetFoodSentiment(foodId, userId);
+                var toTry = await GetFoodToTryStatus(foodId, userId);
+                var topThree = await _attributes.GetTopThree(foodId);
+                var images = await _images.DownloadImages(foodId);
 
-            if (food == null)
-                throw new ErrorResponse(HttpStatusCode.NotFound, ErrorMessages.FoodNotFound, DescriptiveErrorCodes.FoodNotFound);
+                if (food == null)
+                    throw new ErrorResponse(HttpStatusCode.NotFound, ErrorMessages.FoodNotFound, DescriptiveErrorCodes.FoodNotFound);
 
-            return new FoodSummaryResponse(food, images, sentiment, toTry, topThree);
+                return new FoodSummaryResponse(food, images, sentiment, toTry, topThree);
+            }
         }
 
-        private async Task<IEnumerable<FoodSummaryResponse>> GetManyFoodSummaries(IEnumerable<int> foodIds, int userId)
+        private async Task<IEnumerable<FoodSummaryResponse>> GetManyFoodSummaries(IEnumerable<int> foodIds, int userId) =>
+            await Task.WhenAll(foodIds.Select(f => GetFoodSummary(f, userId)));
+
+        /*private async Task<IEnumerable<FoodSummaryResponse>> GetManyFoodSummaries(IEnumerable<int> foodIds, int userId)
         {
             var list = Enumerable.Empty<FoodSummaryResponse>();
             var foods = foodIds.Select(i => _mouthfeel.Foods.Find(i));
@@ -168,13 +138,13 @@ namespace MouthfeelAPIv2.Services
             }
 
             return list;
-        }
+        }*/
 
 
         // TODO: Fix search, its throwing the "second operation" error
         // TODO: Searching for 'test' is super slow
         // TODO: GroupJoin to make things faster
-        public async Task<IEnumerable<FoodResponse>> SearchFoods(string query, IEnumerable<string> searchFilter, int userId)
+        public async Task<IEnumerable<FoodSummaryResponse>> SearchFoods(string query, IEnumerable<string> searchFilter, int userId)
         {
             var foods = new Food[] { };
             var foodsWithDetails = new FoodResponse[] { };
@@ -217,7 +187,7 @@ namespace MouthfeelAPIv2.Services
 
             foods = foods.DistinctBy(f => f.Name).ToArray();
 
-            return await GetManyFoodDetails(foods.Select(f => f.Id), userId);
+            return await GetManyFoodSummaries(foods.Select(f => f.Id), userId);
         }
 
         public async Task<FoodResponse> AddFood(CreateFoodRequest request, int userId)
@@ -293,7 +263,7 @@ namespace MouthfeelAPIv2.Services
         }
 
         public async Task<int> GetFoodSentiment(int foodId, int userId) 
-            => (await _mouthfeel.FoodSentiments.ToListAsync())
+            => _mouthfeel.FoodSentiments
                 .Where(s => s.UserId == userId)
                 .Where(s => s.FoodId == foodId)?
                 .FirstOrDefault()?.Sentiment ?? 0;
@@ -414,7 +384,7 @@ namespace MouthfeelAPIv2.Services
 
         public async Task<bool> GetFoodToTryStatus(int foodId, int userId)
         {
-            var toTry = await (_mouthfeel.FoodsToTry.Where(f => f.UserId == userId)).ToListAsync();
+            var toTry = _mouthfeel.FoodsToTry.Where(f => f.UserId == userId);
             return toTry.Any(f => f.FoodId == foodId && f.UserId == userId);
         }
 
