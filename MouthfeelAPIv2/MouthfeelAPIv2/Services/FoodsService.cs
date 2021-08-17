@@ -12,6 +12,7 @@ using System.Net;
 using System.Threading.Tasks;
 using System.Web.Http;
 using Attribute = MouthfeelAPIv2.DbModels.Attribute;
+using FoodImage = MouthfeelAPIv2.Models.FoodImage;
 using FoodSearchType = MouthfeelAPIv2.Constants.FoodSearchType;
 
 namespace MouthfeelAPIv2.Services
@@ -92,58 +93,31 @@ namespace MouthfeelAPIv2.Services
         private async Task<IEnumerable<FoodResponse>> GetManyFoodDetails(IEnumerable<int> foodIds, int userId) =>
             await Task.WhenAll(foodIds.Select(f => GetFoodDetails(f, userId)));
 
-
-        private async Task<FoodSummaryResponse> GetFoodSummary(int foodId, int userId)
+        private async Task<IEnumerable<FoodSummaryResponse>> GetManyFoodSummaries(IEnumerable<int> foodIds, int userId)
         {
             using (var scope = _mouthfeelContextFactory.CreateContext())
             {
-                var food = await _mouthfeel.Foods.FindAsync(foodId);
-                var sentiment = await GetFoodSentiment(foodId, userId);
-                var toTry = await GetFoodToTryStatus(foodId, userId);
-                var topThree = await _attributes.GetTopThree(foodId);
-                var images = await _images.DownloadImages(foodId);
+                var joined = _mouthfeel.Foods.Where(f => foodIds.Contains(f.Id)).ToList()
+                    .GroupJoin(_mouthfeel.FoodSentiments.AsEnumerable().Where(se => se.UserId == userId).ToList(), f => f.Id, s => s.FoodId, (food, sent) => new { Food = food, Sent = sent }).ToList()
+                    .GroupJoin(_mouthfeel.FoodsToTry.AsEnumerable().Where(tT => tT.UserId == userId).ToList(), f => f.Food.Id, t => t.FoodId, (food, toTry) => new { food.Food, food.Sent, ToTry = toTry }).ToList()
+                    .GroupJoin(_mouthfeel.FoodImages.AsEnumerable(), f => f.Food.Id, i => i.FoodId, (food, images) => new { food.Food, food.Sent, food.ToTry, Images = images.Select(im => new FoodImage { Id = im.Id, FoodId = im.FoodId, Image = im.Image, UserId = im.UserId  }) }).ToList();
+                var topThrees = await _attributes.GetManyTopThrees(foodIds);
 
-                if (food == null)
+                if (!joined.Any())
                     throw new ErrorResponse(HttpStatusCode.NotFound, ErrorMessages.FoodNotFound, DescriptiveErrorCodes.FoodNotFound);
 
-                return new FoodSummaryResponse(food, images, sentiment, toTry, topThree);
+                return joined.Select(j => new FoodSummaryResponse
+                (
+                    j.Food, 
+                    j.Images.Where(i => i.FoodId == j.Food.Id), 
+                    j.Sent.FirstOrDefault(s => s.FoodId == j.Food.Id)?.Sentiment ?? 0, 
+                    j.ToTry.Any(t => t.FoodId == j.Food.Id), 
+                    topThrees.Where(kvp => kvp.Key == j.Food.Id).SelectMany(kvp => kvp.Value))
+                );
             }
         }
 
-        private async Task<IEnumerable<FoodSummaryResponse>> GetManyFoodSummaries(IEnumerable<int> foodIds, int userId) =>
-            await Task.WhenAll(foodIds.Select(f => GetFoodSummary(f, userId)));
-
-        /*private async Task<IEnumerable<FoodSummaryResponse>> GetManyFoodSummaries(IEnumerable<int> foodIds, int userId)
-        {
-            var list = Enumerable.Empty<FoodSummaryResponse>();
-            var foods = foodIds.Select(i => _mouthfeel.Foods.Find(i));
-
-            if (foods == null)
-                throw new ErrorResponse(HttpStatusCode.NotFound, ErrorMessages.FoodNotFound, DescriptiveErrorCodes.FoodNotFound);
-
-            var images = await _images.DownloadImagesForManyFoods(foodIds);
-            var sentiments = await GetManyFoodSentiments(foodIds, userId);
-            var toTry = await GetManyFoodToTryStatuses(foodIds, userId);
-            var topThrees = await _attributes.GetManyTopThrees(foodIds);
-
-            foreach (var id in foodIds)
-            {
-                var food = foods.FirstOrDefault(f => f.Id == id);
-                var imgs = images.Where(i => i.FoodId == id);
-                var sentiment = sentiments.FirstOrDefault(s => s.Key == id).Value;
-                var forTry = toTry.FirstOrDefault(t => t.Key == id).Value;
-                var topThree = topThrees.FirstOrDefault(t => t.Key == id).Value;
-
-                list = list.Append(new FoodSummaryResponse(food, imgs, sentiment, forTry, topThree));
-            }
-
-            return list;
-        }*/
-
-
         // TODO: Fix search, its throwing the "second operation" error
-        // TODO: Searching for 'test' is super slow
-        // TODO: GroupJoin to make things faster
         public async Task<IEnumerable<FoodSummaryResponse>> SearchFoods(string query, IEnumerable<string> searchFilter, int userId)
         {
             var foods = new Food[] { };
@@ -267,23 +241,6 @@ namespace MouthfeelAPIv2.Services
                 .Where(s => s.UserId == userId)
                 .Where(s => s.FoodId == foodId)?
                 .FirstOrDefault()?.Sentiment ?? 0;
-
-        private async Task<Dictionary<int, int>> GetManyFoodSentiments(IEnumerable<int> foodIds, int userId)
-        {
-            var records = new Dictionary<int, int>();
-
-            foreach (var id in foodIds)
-            {
-                var sentiment = (await _mouthfeel.FoodSentiments.ToListAsync())
-                    .Where(s => s.UserId == userId)
-                    .Where(s => s.FoodId == id)?
-                    .FirstOrDefault()?.Sentiment ?? 0;
-
-                records.Add(id, sentiment);
-            }
-
-            return records;
-        }
 
         private async Task<IEnumerable<FoodResponse>> GetFoodsBySentiment(int userId, Sentiment sentiment)
         {
