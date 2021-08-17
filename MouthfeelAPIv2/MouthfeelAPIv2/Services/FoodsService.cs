@@ -117,7 +117,6 @@ namespace MouthfeelAPIv2.Services
             }
         }
 
-        // TODO: Fix search, its throwing the "second operation" error
         public async Task<IEnumerable<FoodSummaryResponse>> SearchFoods(string query, IEnumerable<string> searchFilter, int userId)
         {
             var foods = new Food[] { };
@@ -292,9 +291,20 @@ namespace MouthfeelAPIv2.Services
         public async Task<IEnumerable<FoodSummaryResponse>> GetFoodsToTry(int userId)
         {
             var toTry = await (_mouthfeel.FoodsToTry.Where(f => f.UserId == userId)).ToListAsync();
-            return await GetManyFoodSummaries(toTry.Select(f => f.FoodId), userId);
+            var detailsTask = toTry.Select(f => GetManyFoodSummaries(new[] { f.FoodId }, userId));
+
+            var foodWithSummary = Enumerable.Empty<FoodSummaryResponse>();
+
+            foreach (var details in detailsTask)
+            {
+                var res = await details;
+                foodWithSummary = foodWithSummary.Concat(res);
+            }
+
+            return foodWithSummary;
         }
 
+        // TODO: This is throwing an error, which is very cool
         // TODO: Optimize this. It works, but it's slow
         public async Task<IEnumerable<FoodSummaryResponse>> GetRecommendedFoods(int userId)
         {
@@ -325,6 +335,7 @@ namespace MouthfeelAPIv2.Services
                 return combinedFlavors.Concat(combinedTextures).Concat(combinedMisc);
             }
 
+            // TODO: 'second operation' bs
             var allFoods = await GetAllFoods(userId);
 
             var liked = allFoods.Where(f => f.Sentiment == (int)Sentiment.Liked);
@@ -337,9 +348,7 @@ namespace MouthfeelAPIv2.Services
             var comparedWithDisliked = GetCommonAttributes(disliked, withoutSentiment);
 
             var leftovers = comparedWithLiked.Except(comparedWithDisliked);
-            var summaries = await GetManyFoodSummaries(leftovers.Select(l => l.Id), userId);
-
-            return summaries;
+            return await GetManyFoodSummaries(leftovers.Select(l => l.Id), userId);
         }
 
         public async Task<bool> GetFoodToTryStatus(int foodId, int userId)
