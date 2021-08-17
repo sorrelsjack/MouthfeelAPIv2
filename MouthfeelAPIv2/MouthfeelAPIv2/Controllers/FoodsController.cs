@@ -23,6 +23,7 @@ using MouthfeelAPIv2.Services;
 
 namespace MouthfeelAPIv2.Controllers
 {
+    // TODO: Liked, Disliked, ToTry, and Recommended should return FoodSummary
     [Authorize]
     [Route("api/foods")]
     [ApiController]
@@ -65,13 +66,13 @@ namespace MouthfeelAPIv2.Controllers
         ) => await foodsService.GetFoodDetails(id, IdentityHelper.GetIdFromUser(User));
 
         [HttpGet("liked")]
-        public async Task<ActionResult<IEnumerable<FoodResponse>>> GetLikedFoods
+        public async Task<ActionResult<IEnumerable<FoodSummaryResponse>>> GetLikedFoods
         (
             [FromServices] IFoodsService foodsService
         ) => (await foodsService.GetLikedFoods(IdentityHelper.GetIdFromUser(User))).ToList();
 
         [HttpGet("disliked")]
-        public async Task<ActionResult<IEnumerable<FoodResponse>>> GetDislikedFoods
+        public async Task<ActionResult<IEnumerable<FoodSummaryResponse>>> GetDislikedFoods
         (
             [FromServices] IFoodsService foodsService
         ) => (await foodsService.GetDislikedFoods(IdentityHelper.GetIdFromUser(User))).ToList();
@@ -87,13 +88,13 @@ namespace MouthfeelAPIv2.Controllers
         }
 
         [HttpGet("recommended")]
-        public async Task<ActionResult<IEnumerable<FoodResponse>>> GetRecommendedFoods
+        public async Task<ActionResult<IEnumerable<FoodSummaryResponse>>> GetRecommendedFoods
         (
             [FromServices] IFoodsService foodsService
         ) => (await foodsService.GetRecommendedFoods(IdentityHelper.GetIdFromUser(User))).ToList();
 
         [HttpGet("to-try")]
-        public async Task<ActionResult<IEnumerable<FoodResponse>>> GetFoodsToTry
+        public async Task<ActionResult<IEnumerable<FoodSummaryResponse>>> GetFoodsToTry
         (
             [FromServices] IFoodsService foodsService
         ) => (await foodsService.GetFoodsToTry(IdentityHelper.GetIdFromUser(User))).ToList();
