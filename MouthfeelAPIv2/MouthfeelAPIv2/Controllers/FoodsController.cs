@@ -45,7 +45,7 @@ namespace MouthfeelAPIv2.Controllers
 
 
         [HttpGet("search")]
-        public async Task<ActionResult<IEnumerable<FoodSummaryResponse>>> SearchFoods
+        public async Task<ActionResult<IEnumerable<FoodResponse>>> SearchFoods
         (
             [FromServices] IFoodsService foodsService,
             [FromQuery] string query,
@@ -66,13 +66,13 @@ namespace MouthfeelAPIv2.Controllers
         ) => await foodsService.GetFoodDetails(id, IdentityHelper.GetIdFromUser(User));
 
         [HttpGet("liked")]
-        public async Task<ActionResult<IEnumerable<FoodSummaryResponse>>> GetLikedFoods
+        public async Task<ActionResult<IEnumerable<FoodResponse>>> GetLikedFoods
         (
             [FromServices] IFoodsService foodsService
         ) => (await foodsService.GetLikedFoods(IdentityHelper.GetIdFromUser(User))).ToList();
 
         [HttpGet("disliked")]
-        public async Task<ActionResult<IEnumerable<FoodSummaryResponse>>> GetDislikedFoods
+        public async Task<ActionResult<IEnumerable<FoodResponse>>> GetDislikedFoods
         (
             [FromServices] IFoodsService foodsService
         ) => (await foodsService.GetDislikedFoods(IdentityHelper.GetIdFromUser(User))).ToList();
@@ -88,13 +88,13 @@ namespace MouthfeelAPIv2.Controllers
         }
 
         [HttpGet("recommended")]
-        public async Task<ActionResult<IEnumerable<FoodSummaryResponse>>> GetRecommendedFoods
+        public async Task<ActionResult<IEnumerable<FoodResponse>>> GetRecommendedFoods
         (
             [FromServices] IFoodsService foodsService
         ) => (await foodsService.GetRecommendedFoods(IdentityHelper.GetIdFromUser(User))).ToList();
 
         [HttpGet("to-try")]
-        public async Task<ActionResult<IEnumerable<FoodSummaryResponse>>> GetFoodsToTry
+        public async Task<ActionResult<IEnumerable<FoodResponse>>> GetFoodsToTry
         (
             [FromServices] IFoodsService foodsService
         ) => (await foodsService.GetFoodsToTry(IdentityHelper.GetIdFromUser(User))).ToList();

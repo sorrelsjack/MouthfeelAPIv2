@@ -21,15 +21,15 @@ namespace MouthfeelAPIv2.Services
     {
         Task<bool> FoodExists(int foodId);
         Task<FoodResponse> GetFoodDetails(int foodId, int userId);
-        Task<IEnumerable<FoodSummaryResponse>> SearchFoods(string query, IEnumerable<string> searchFilter, int userId);
+        Task<IEnumerable<FoodResponse>> SearchFoods(string query, IEnumerable<string> searchFilter, int userId);
         Task<FoodResponse> AddFood(CreateFoodRequest request, int userId);
         Task<int> GetFoodSentiment(int foodId, int userId);
-        Task<IEnumerable<FoodSummaryResponse>> GetLikedFoods(int userId);
-        Task<IEnumerable<FoodSummaryResponse>> GetDislikedFoods(int userId);
+        Task<IEnumerable<FoodResponse>> GetLikedFoods(int userId);
+        Task<IEnumerable<FoodResponse>> GetDislikedFoods(int userId);
         Task<ManageFoodSentimentResponse> ManageFoodSentiment(int foodId, int userId, Sentiment newSentiment);
-        Task<IEnumerable<FoodSummaryResponse>> GetFoodsToTry(int userId);
+        Task<IEnumerable<FoodResponse>> GetFoodsToTry(int userId);
         Task<Dictionary<int, bool>> GetManyFoodToTryStatuses(IEnumerable<int> foodIds, int userId);
-        Task<IEnumerable<FoodSummaryResponse>> GetRecommendedFoods(int userId);
+        Task<IEnumerable<FoodResponse>> GetRecommendedFoods(int userId);
         Task<bool> GetFoodToTryStatus(int foodId, int userId);
         Task AddOrRemoveFoodToTry(int foodId, int userId);
         Task<VotableAttribute> AddOrUpdateAttribute(AddOrUpdateVotableAttributeRequest request, int userId, VotableAttributeType type);
@@ -86,7 +86,7 @@ namespace MouthfeelAPIv2.Services
                 if (food == null)
                     throw new ErrorResponse(HttpStatusCode.NotFound, ErrorMessages.FoodNotFound, DescriptiveErrorCodes.FoodNotFound);
 
-                return new FoodResponse(food, images, sentiment, toTry, ingredients, textures, flavors, misc);
+                return new FoodResponse(food, images, sentiment, toTry, ingredients, flavors, textures, misc);
             }
         }
 
@@ -117,7 +117,7 @@ namespace MouthfeelAPIv2.Services
             }
         }
 
-        public async Task<IEnumerable<FoodSummaryResponse>> SearchFoods(string query, IEnumerable<string> searchFilter, int userId)
+        public async Task<IEnumerable<FoodResponse>> SearchFoods(string query, IEnumerable<string> searchFilter, int userId)
         {
             var foods = new Food[] { };
             var foodsWithDetails = new FoodResponse[] { };
@@ -160,7 +160,7 @@ namespace MouthfeelAPIv2.Services
 
             foods = foods.DistinctBy(f => f.Name).ToArray();
 
-            return await GetManyFoodSummaries(foods.Select(f => f.Id), userId);
+            return await GetManyFoodDetails(foods.Select(f => f.Id), userId);
         }
 
         public async Task<FoodResponse> AddFood(CreateFoodRequest request, int userId)
@@ -241,7 +241,7 @@ namespace MouthfeelAPIv2.Services
                 .Where(s => s.FoodId == foodId)?
                 .FirstOrDefault()?.Sentiment ?? 0;
 
-        private async Task<IEnumerable<FoodSummaryResponse>> GetFoodsBySentiment(int userId, Sentiment sentiment)
+        private async Task<IEnumerable<FoodResponse>> GetFoodsBySentiment(int userId, Sentiment sentiment)
         {
             var foods = await _mouthfeel.Foods.ToListAsync();
             var f = foods
@@ -249,23 +249,23 @@ namespace MouthfeelAPIv2.Services
                 .Where(f => f.UserId == userId)
                 .Where(f => f.Sentiment == (int)sentiment);
 
-            var detailsTask = f.Select(f => GetManyFoodSummaries(new[] { f.Id }, userId));
+            var detailsTask = f.Select(f => GetFoodDetails(f.Id, userId));
 
-            var foodWithSummary = Enumerable.Empty<FoodSummaryResponse>();
+            var foodWithDetails = Enumerable.Empty<FoodResponse>();
 
             foreach (var details in detailsTask)
             {
                 var res = await details;
-                foodWithSummary = foodWithSummary.Concat(res);
+                foodWithDetails = foodWithDetails.Append(res);
             }
 
-            return foodWithSummary;
+            return foodWithDetails;
         }
 
-        public async Task<IEnumerable<FoodSummaryResponse>> GetLikedFoods(int userId)
+        public async Task<IEnumerable<FoodResponse>> GetLikedFoods(int userId)
             => await GetFoodsBySentiment(userId, Sentiment.Liked);
 
-        public async Task<IEnumerable<FoodSummaryResponse>> GetDislikedFoods(int userId)
+        public async Task<IEnumerable<FoodResponse>> GetDislikedFoods(int userId)
             => await GetFoodsBySentiment(userId, Sentiment.Disliked);
 
         public async Task<ManageFoodSentimentResponse> ManageFoodSentiment(int foodId, int userId, Sentiment newSentiment)
@@ -288,25 +288,15 @@ namespace MouthfeelAPIv2.Services
             return new ManageFoodSentimentResponse { FoodId = foodId, UserId = userId, Sentiment = newSentiment };
         }
 
-        public async Task<IEnumerable<FoodSummaryResponse>> GetFoodsToTry(int userId)
+        public async Task<IEnumerable<FoodResponse>> GetFoodsToTry(int userId)
         {
             var toTry = await (_mouthfeel.FoodsToTry.Where(f => f.UserId == userId)).ToListAsync();
-            var detailsTask = toTry.Select(f => GetManyFoodSummaries(new[] { f.FoodId }, userId));
-
-            var foodWithSummary = Enumerable.Empty<FoodSummaryResponse>();
-
-            foreach (var details in detailsTask)
-            {
-                var res = await details;
-                foodWithSummary = foodWithSummary.Concat(res);
-            }
-
-            return foodWithSummary;
+            return await GetManyFoodDetails(toTry.Select(f => f.FoodId), userId);
         }
 
         // TODO: This is throwing an error, which is very cool
         // TODO: Optimize this. It works, but it's slow
-        public async Task<IEnumerable<FoodSummaryResponse>> GetRecommendedFoods(int userId)
+        public async Task<IEnumerable<FoodResponse>> GetRecommendedFoods(int userId)
         {
             IEnumerable<FoodResponse> GetCommonAttributes(IEnumerable<FoodResponse> source, IEnumerable<FoodResponse> toCompare)
             {
@@ -347,8 +337,7 @@ namespace MouthfeelAPIv2.Services
             var comparedWithLiked = GetCommonAttributes(liked, withoutSentiment);
             var comparedWithDisliked = GetCommonAttributes(disliked, withoutSentiment);
 
-            var leftovers = comparedWithLiked.Except(comparedWithDisliked);
-            return await GetManyFoodSummaries(leftovers.Select(l => l.Id), userId);
+            return comparedWithLiked.Except(comparedWithDisliked);
         }
 
         public async Task<bool> GetFoodToTryStatus(int foodId, int userId)
