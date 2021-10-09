@@ -90,8 +90,60 @@ namespace MouthfeelAPIv2.Services
             }
         }
 
-        private async Task<IEnumerable<FoodResponse>> GetManyFoodDetails(IEnumerable<int> foodIds, int userId) =>
-            await Task.WhenAll(foodIds.Select(f => GetFoodDetails(f, userId)));
+        // TODO: This looks nasty, but it works. Will clean up later... I hope
+        private async Task<IEnumerable<FoodResponse>> GetManyFoodDetails(IEnumerable<int> foodIds, int userId)
+        {
+            var foods = await _mouthfeel.Foods.Where(f => foodIds.Contains(f.Id)).ToListAsync();
+            var sentiments = await _mouthfeel.FoodSentiments.Where(se => se.UserId == userId).ToListAsync();
+            var toTry = await _mouthfeel.FoodsToTry.Where(tT => tT.UserId == userId).ToListAsync();
+            var images = await _mouthfeel.FoodImages.ToListAsync();
+            var attributeVotes = await _mouthfeel.AttributeVotes.ToListAsync();
+
+            var joined = foods
+            .GroupJoin(sentiments, f => f.Id, s => s.FoodId, (food, sent) => new { Food = food, Sent = sent }).ToList()
+            .GroupJoin(toTry, f => f.Food.Id, t => t.FoodId, (food, toTry) => new { food.Food, food.Sent, ToTry = toTry }).ToList()
+            .GroupJoin(images, f => f.Food.Id, i => i.FoodId, (food, images) => new { food.Food, food.Sent, food.ToTry, Images = images.Select(im => new FoodImage { Id = im.Id, FoodId = im.FoodId, Image = im.Image, UserId = im.UserId }) }).ToList()
+            .GroupJoin(attributeVotes, f => f.Food.Id, v => v.FoodId, (food, votes) => new { food.Food, food.Sent, food.ToTry, food.Images, Votes = votes }).ToList();
+
+            var flavors = await _attributes.GetAttributes(VotableAttributeType.Flavor);
+            var textures = await _attributes.GetAttributes(VotableAttributeType.Texture);
+            var misc = await _attributes.GetAttributes(VotableAttributeType.Miscellaneous);
+
+            return joined.Select(j => new FoodResponse(
+                j.Food, 
+                j.Images, 
+                j.Sent?.FirstOrDefault(f => f.FoodId == j.Food.Id)?.Sentiment ?? 0, 
+                j.ToTry?.FirstOrDefault(f => f.FoodId == j.Food.Id) != null, 
+                null, 
+                flavors.Join(j.Votes, attr => attr.Id, vote => vote.AttributeId, (attr, vote) =>
+                new VotableAttribute
+                {
+                    Id = attr.Id,
+                    Name = attr.Name,
+                    Description = attr.Description,
+                    Votes = j.Votes.Where(v => v.AttributeId == attr.Id).ToList().Aggregate(0, (total, next) => total + next.Vote),
+                    Sentiment = j.Votes.Where(v => v.UserId == userId).ToList().FirstOrDefault(v => v.AttributeId == attr.Id)?.Vote ?? 0
+                }).DistinctBy(a => a.Id).ToList(),
+                textures.Join(j.Votes, attr => attr.Id, vote => vote.AttributeId, (attr, vote) =>
+                new VotableAttribute
+                {
+                    Id = attr.Id,
+                    Name = attr.Name,
+                    Description = attr.Description,
+                    Votes = j.Votes.Where(v => v.AttributeId == attr.Id).ToList().Aggregate(0, (total, next) => total + next.Vote),
+                    Sentiment = j.Votes.Where(v => v.UserId == userId).ToList().FirstOrDefault(v => v.AttributeId == attr.Id)?.Vote ?? 0
+                }).DistinctBy(a => a.Id).ToList(),
+                misc.Join(j.Votes, attr => attr.Id, vote => vote.AttributeId, (attr, vote) =>
+                new VotableAttribute
+                {
+                    Id = attr.Id,
+                    Name = attr.Name,
+                    Description = attr.Description,
+                    Votes = j.Votes.Where(v => v.AttributeId == attr.Id).ToList().Aggregate(0, (total, next) => total + next.Vote),
+                    Sentiment = j.Votes.Where(v => v.UserId == userId).ToList().FirstOrDefault(v => v.AttributeId == attr.Id)?.Vote ?? 0
+                }).DistinctBy(a => a.Id).ToList())
+            ).ToList();
+        }
 
         private async Task<IEnumerable<FoodSummaryResponse>> GetManyFoodSummaries(IEnumerable<int> foodIds, int userId)
         {
@@ -249,17 +301,7 @@ namespace MouthfeelAPIv2.Services
                 .Where(f => f.UserId == userId)
                 .Where(f => f.Sentiment == (int)sentiment);
 
-            var detailsTask = f.Select(f => GetFoodDetails(f.Id, userId));
-
-            var foodWithDetails = Enumerable.Empty<FoodResponse>();
-
-            foreach (var details in detailsTask)
-            {
-                var res = await details;
-                foodWithDetails = foodWithDetails.Append(res);
-            }
-
-            return foodWithDetails;
+            return await GetManyFoodDetails(f.Select(fd => fd.Id), userId);
         }
 
         public async Task<IEnumerable<FoodResponse>> GetLikedFoods(int userId)
@@ -294,50 +336,51 @@ namespace MouthfeelAPIv2.Services
             return await GetManyFoodDetails(toTry.Select(f => f.FoodId), userId);
         }
 
-        // TODO: This is throwing an error, which is very cool
         // TODO: Optimize this. It works, but it's slow
         public async Task<IEnumerable<FoodResponse>> GetRecommendedFoods(int userId)
         {
+            IEnumerable<FoodResponse> ExcludeOverlap(IEnumerable<FoodResponse> source, IEnumerable<FoodResponse> toCompare) =>
+                source.Where(s => !toCompare.Select(t => t.Id).ToList().Contains(s.Id)).ToList();
+
             IEnumerable<FoodResponse> GetCommonAttributes(IEnumerable<FoodResponse> source, IEnumerable<FoodResponse> toCompare)
             {
-                var sourceFlavorIds = source.SelectMany(s => s.Flavors.Select(f => f.Id));
-                var toCompareFlavorIds = toCompare.SelectMany(s => s.Flavors.Select(f => f.Id));
+                var sourceFlavorIds = source.SelectMany(s => s.Flavors.Select(f => f.Id)).ToList();
+                var toCompareFlavorIds = toCompare.SelectMany(s => s.Flavors.Select(f => f.Id)).ToList();
 
-                var sourceTextureIds = source.SelectMany(s => s.Textures.Select(f => f.Id));
-                var toCompareTextureIds = toCompare.SelectMany(s => s.Textures.Select(f => f.Id));
+                var sourceTextureIds = source.SelectMany(s => s.Textures.Select(f => f.Id)).ToList();
+                var toCompareTextureIds = toCompare.SelectMany(s => s.Textures.Select(f => f.Id)).ToList();
 
-                var sourceMiscIds = source.SelectMany(s => s.Miscellaneous.Select(f => f.Id));
-                var toCompareMiscIds = toCompare.SelectMany(s => s.Miscellaneous.Select(f => f.Id));
+                var sourceMiscIds = source.SelectMany(s => s.Miscellaneous.Select(f => f.Id)).ToList();
+                var toCompareMiscIds = toCompare.SelectMany(s => s.Miscellaneous.Select(f => f.Id)).ToList();
 
                 var commonFlavorIds = sourceFlavorIds.Intersect(toCompareFlavorIds);
                 var commonTextureIds = sourceTextureIds.Intersect(toCompareTextureIds);
                 var commonMiscIds = sourceMiscIds.Intersect(toCompareMiscIds);
 
                 var combinedFlavors = toCompare
-                    .Where(a => a.Flavors.Any(f => commonFlavorIds.Contains(f.Id)));
+                    .Where(a => a.Flavors.Any(f => commonFlavorIds.Contains(f.Id))).ToList();
 
                 var combinedTextures = toCompare
-                    .Where(a => a.Textures.Any(f => commonTextureIds.Contains(f.Id)));
+                    .Where(a => a.Textures.Any(f => commonTextureIds.Contains(f.Id))).ToList();
 
                 var combinedMisc = toCompare
-                    .Where(a => a.Miscellaneous.Any(f => commonMiscIds.Contains(f.Id)));
+                    .Where(a => a.Miscellaneous.Any(f => commonMiscIds.Contains(f.Id))).ToList();
 
-                return combinedFlavors.Concat(combinedTextures).Concat(combinedMisc);
+                return ExcludeOverlap(combinedFlavors.Concat(combinedTextures).Concat(combinedMisc), source).DistinctBy(f => f.Id).ToList();
             }
 
-            // TODO: 'second operation' bs
             var allFoods = await GetAllFoods(userId);
 
-            var liked = allFoods.Where(f => f.Sentiment == (int)Sentiment.Liked);
-            var disliked = allFoods.Where(f => f.Sentiment == (int)Sentiment.Disliked);
-            var toTry = allFoods.Where(f => f.ToTry == true);
+            var liked = allFoods.Where(f => f.Sentiment == (int)Sentiment.Liked).ToList();
+            var disliked = allFoods.Where(f => f.Sentiment == (int)Sentiment.Disliked).ToList();
+            var toTry = allFoods.Where(f => f.ToTry == true).ToList();
 
-            var withoutSentiment = allFoods.Except(liked).Except(disliked).Except(toTry);
+            var withoutSentiment = ExcludeOverlap(allFoods, liked).Concat(ExcludeOverlap(allFoods, disliked).Concat(ExcludeOverlap(allFoods, toTry)));
 
             var comparedWithLiked = GetCommonAttributes(liked, withoutSentiment);
             var comparedWithDisliked = GetCommonAttributes(disliked, withoutSentiment);
 
-            return comparedWithLiked.Except(comparedWithDisliked);
+            return ExcludeOverlap(comparedWithLiked, comparedWithDisliked);
         }
 
         public async Task<bool> GetFoodToTryStatus(int foodId, int userId)
