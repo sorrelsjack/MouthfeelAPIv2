@@ -169,6 +169,7 @@ namespace MouthfeelAPIv2.Services
             }
         }
 
+        // TODO: Doing a search for 'test' takes 12 seconds, so that's no good
         public async Task<IEnumerable<FoodResponse>> SearchFoods(string query, IEnumerable<string> searchFilter, int userId)
         {
             var foods = new Food[] { };
@@ -203,7 +204,6 @@ namespace MouthfeelAPIv2.Services
                 foods = foods.Concat(matchingFoods).ToArray();
             }
 
-            // TODO: fix 'second operation' error here
             if (searchFilter.Contains(FoodSearchType.Name))
             {
                 var byName = (await _mouthfeel.Foods.ToListAsync()).Where(f => f.Name.ToLower().Contains(query.ToLower()));

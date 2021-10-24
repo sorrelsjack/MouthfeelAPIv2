@@ -44,6 +44,7 @@ namespace MouthfeelAPIv2.Controllers
         }
 
 
+        [AllowAnonymous]
         [HttpGet("search")]
         public async Task<ActionResult<IEnumerable<FoodResponse>>> SearchFoods
         (
@@ -58,6 +59,7 @@ namespace MouthfeelAPIv2.Controllers
             return (await foodsService.SearchFoods(query, searchFilter, IdentityHelper.GetIdFromUser(User))).ToList();
         }
 
+        [AllowAnonymous]
         [HttpGet("{id}")]
         public async Task<ActionResult<FoodResponse>> GetFood
         (
@@ -134,6 +136,7 @@ namespace MouthfeelAPIv2.Controllers
             return await foodsService.AddFood(food, IdentityHelper.GetIdFromUser(User));
         }
 
+        [AllowAnonymous]
         [HttpPost("{id}/flavors")]
         public async Task<ActionResult<VotableAttribute>> AddOrUpdateFoodFlavor
         (
@@ -142,8 +145,9 @@ namespace MouthfeelAPIv2.Controllers
         ) 
         {
             return await foodsService.AddOrUpdateAttribute(request, IdentityHelper.GetIdFromUser(User), VotableAttributeType.Flavor);
-        } 
+        }
 
+        [AllowAnonymous]
         [HttpPost("{id}/textures")]
         public async Task<ActionResult<VotableAttribute>> AddOrUpdateFoodTexture
         (
@@ -154,6 +158,7 @@ namespace MouthfeelAPIv2.Controllers
             return await foodsService.AddOrUpdateAttribute(request, IdentityHelper.GetIdFromUser(User), VotableAttributeType.Texture);
         }
 
+        [AllowAnonymous]
         [HttpPost("{id}/miscellaneous")]
         public async Task<ActionResult<VotableAttribute>> AddOrUpdateFoodMiscellaneousAttribute
         (
