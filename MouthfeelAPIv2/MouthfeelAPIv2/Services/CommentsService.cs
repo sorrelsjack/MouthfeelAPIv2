@@ -106,6 +106,7 @@ namespace MouthfeelAPIv2.Services
             return (await GetCommentsByFood(foodId, userId)).FirstOrDefault(c => c.Id == commentId);
         }
 
+        // TODO: This needs to be faster
         public async Task<IEnumerable<CommentResponse>> GetCommentsByFood(int foodId, int userId)
         {
             var comments = (await _mouthfeel.Comments.ToListAsync()).Where(c => c.FoodId == foodId);
@@ -142,7 +143,7 @@ namespace MouthfeelAPIv2.Services
         {
             var commentVotes = (await _mouthfeel.CommentVotes.ToListAsync()).Where(c => c.CommentId == comment.Id);
             var userVote = commentVotes.FirstOrDefault(v => v.UserId == userId)?.Vote ?? 0;
-            var userDetails = await _users.GetUserDetails(userId);
+            var userDetails = await _users.GetUserDetails(comment.UserId);
 
             return new CommentResponse(comment, userDetails, commentVotes.Sum(c => c.Vote), userVote);
         }
