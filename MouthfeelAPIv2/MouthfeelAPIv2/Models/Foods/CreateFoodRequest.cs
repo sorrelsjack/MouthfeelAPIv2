@@ -12,10 +12,10 @@ namespace MouthfeelAPIv2.Models.Foods
         public string Name { get; set; }
         public IFormFile Image { get; set; }
 
-        public int[] Flavors { get; set; }
+        public string Flavors { get; set; }
 
-        public int[] Textures { get; set; }
+        public string Textures { get; set; }
 
-        public int[] Miscellaneous { get; set; }
+        public string Miscellaneous { get; set; }
     }
 }

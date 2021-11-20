@@ -219,27 +219,31 @@ namespace MouthfeelAPIv2.Services
         {
             var foods = await _mouthfeel.Foods.ToListAsync();
 
+            var flavorsToAdd = request.Flavors.Split(",").Select(f => Int32.Parse(f));
+            var texturesToAdd = request.Textures.Split(",").Select(t => Int32.Parse(t));
+            var miscToAdd = request.Miscellaneous.Split(",").Select(m => Int32.Parse(m));
+
             if (foods.Any(f => String.Equals(f.Name, request.Name, StringComparison.OrdinalIgnoreCase))) 
                 throw new ErrorResponse(HttpStatusCode.BadRequest, "A food with that name already exists.", DescriptiveErrorCodes.FoodAlreadyExists);
 
-            if (request.Flavors?.Any() ?? false)
+            if (flavorsToAdd?.Any() ?? false)
             {
                 var flavors = await _attributes.GetAttributes(VotableAttributeType.Flavor);
-                if (!request.Flavors.All(f => flavors.Select(fl => fl.Id).Contains(f)))
+                if (!flavorsToAdd.All(f => flavors.Select(fl => fl.Id).Contains(f)))
                     throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.FlavorDoesNotExist, DescriptiveErrorCodes.FlavorDoesNotExist);
             }
 
-            if (request.Miscellaneous?.Any() ?? false)
+            if (miscToAdd?.Any() ?? false)
             {
                 var misc = await _attributes.GetAttributes(VotableAttributeType.Miscellaneous);
-                if (!request.Miscellaneous.All(m => misc.Select(ms => ms.Id).Contains(m)))
+                if (!miscToAdd.All(m => misc.Select(ms => ms.Id).Contains(m)))
                     throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.MiscellaneousDoesNotExist, DescriptiveErrorCodes.MiscellaneousDoesNotExist);
             }
 
-            if (request.Textures?.Any() ?? false)
+            if (texturesToAdd?.Any() ?? false)
             {
                 var textures = await _attributes.GetAttributes(VotableAttributeType.Texture);
-                if (!request.Textures.All(t => textures.Select(tx => tx.Id).Contains(t)))
+                if (!texturesToAdd.All(t => textures.Select(tx => tx.Id).Contains(t)))
                     throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.TextureDoesNotExist, DescriptiveErrorCodes.TextureDoesNotExist);
             }
 
@@ -263,9 +267,9 @@ namespace MouthfeelAPIv2.Services
             };
             var image = await _images.UploadImage(imageRequest);
 
-            var flavorTasks = request.Flavors?.Select(f => _attributes.ManageVote(f, userId, foodId, VotableAttributeType.Flavor));
-            var miscTasks = request.Miscellaneous?.Select(m => _attributes.ManageVote(m, userId, foodId, VotableAttributeType.Miscellaneous));
-            var textureTasks = request.Textures?.Select(t => _attributes.ManageVote(t, userId, foodId, VotableAttributeType.Texture));
+            var flavorTasks = flavorsToAdd?.Select(f => _attributes.ManageVote(f, userId, foodId, VotableAttributeType.Flavor));
+            var miscTasks = miscToAdd?.Select(m => _attributes.ManageVote(m, userId, foodId, VotableAttributeType.Miscellaneous));
+            var textureTasks = texturesToAdd?.Select(t => _attributes.ManageVote(t, userId, foodId, VotableAttributeType.Texture));
 
             // TODO: Probably need error handling here
             if (flavorTasks != null)
