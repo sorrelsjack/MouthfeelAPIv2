@@ -259,13 +259,16 @@ namespace MouthfeelAPIv2.Services
             var createdFood = await _mouthfeel.Foods.FirstOrDefaultAsync(f => f.Name == food.Name);
             var foodId = createdFood.Id;
 
-            var imageRequest = new CreateFoodImageRequest
+            if (request.Image != null)
             {
-                UserId = userId,
-                FoodId = foodId,
-                Image = request.Image
-            };
-            var image = await _images.UploadImage(imageRequest);
+                var imageRequest = new CreateFoodImageRequest
+                {
+                    UserId = userId,
+                    FoodId = foodId,
+                    Image = request.Image
+                };
+                var image = await _images.UploadImage(imageRequest);
+            }
 
             var flavorTasks = flavorsToAdd?.Select(f => _attributes.ManageVote(f, userId, foodId, VotableAttributeType.Flavor));
             var miscTasks = miscToAdd?.Select(m => _attributes.ManageVote(m, userId, foodId, VotableAttributeType.Miscellaneous));
