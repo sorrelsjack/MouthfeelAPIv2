@@ -15,6 +15,7 @@ namespace MouthfeelAPIv2.Services
 {
     public interface IAttributesService
     {
+        Task<IEnumerable<Attribute>> GetAllAttributes();
         Task<IEnumerable<AttributeType>> GetAttributeTypes();
         Task<IEnumerable<Attribute>> GetAttributes(VotableAttributeType type);
         Task<IEnumerable<VotableAttribute>> GetVotes(int? foodId, int userId, VotableAttributeType type);
@@ -33,6 +34,9 @@ namespace MouthfeelAPIv2.Services
         {
             _mouthfeel = mouthfeel;
         }
+
+        public async Task<IEnumerable<Attribute>> GetAllAttributes()
+            => _mouthfeel.Attributes;
 
         public async Task<IEnumerable<AttributeType>> GetAttributeTypes()
             => await _mouthfeel.AttributeTypes.ToListAsync();
@@ -151,7 +155,7 @@ namespace MouthfeelAPIv2.Services
 
             await _mouthfeel.SaveChangesAsync();
 
-            var votesForAttribute = (await GetVotes(foodId, userId, type)).FirstOrDefault(v => v.Id == attributeId).Votes;
+            var votesForAttribute = (await GetVotes(foodId, userId, type))?.FirstOrDefault(v => v.Id == attributeId)?.Votes ?? 0;
 
             return new VotableAttribute 
             { 

@@ -223,28 +223,16 @@ namespace MouthfeelAPIv2.Services
             var texturesToAdd = request.Textures.Split(",").Select(t => Int32.Parse(t));
             var miscToAdd = request.Miscellaneous.Split(",").Select(m => Int32.Parse(m));
 
+            var attributesToAdd = flavorsToAdd.Concat(texturesToAdd).Concat(miscToAdd);
+
             if (foods.Any(f => String.Equals(f.Name, request.Name, StringComparison.OrdinalIgnoreCase))) 
                 throw new ErrorResponse(HttpStatusCode.BadRequest, "A food with that name already exists.", DescriptiveErrorCodes.FoodAlreadyExists);
 
-            if (flavorsToAdd?.Any() ?? false)
+            if (attributesToAdd?.Any() ?? false)
             {
-                var flavors = await _attributes.GetAttributes(VotableAttributeType.Flavor);
-                if (!flavorsToAdd.All(f => flavors.Select(fl => fl.Id).Contains(f)))
-                    throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.FlavorDoesNotExist, DescriptiveErrorCodes.FlavorDoesNotExist);
-            }
-
-            if (miscToAdd?.Any() ?? false)
-            {
-                var misc = await _attributes.GetAttributes(VotableAttributeType.Miscellaneous);
-                if (!miscToAdd.All(m => misc.Select(ms => ms.Id).Contains(m)))
-                    throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.MiscellaneousDoesNotExist, DescriptiveErrorCodes.MiscellaneousDoesNotExist);
-            }
-
-            if (texturesToAdd?.Any() ?? false)
-            {
-                var textures = await _attributes.GetAttributes(VotableAttributeType.Texture);
-                if (!texturesToAdd.All(t => textures.Select(tx => tx.Id).Contains(t)))
-                    throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.TextureDoesNotExist, DescriptiveErrorCodes.TextureDoesNotExist);
+                var attributes = await _attributes.GetAllAttributes();
+                if (!attributesToAdd.All(a => attributes.Select(att => att.Id).Contains(a)))
+                    throw new ErrorResponse(HttpStatusCode.BadRequest, ErrorMessages.AttributeDoesNotExist, DescriptiveErrorCodes.AttributeDoesNotExist);
             }
 
             var food = new Food 

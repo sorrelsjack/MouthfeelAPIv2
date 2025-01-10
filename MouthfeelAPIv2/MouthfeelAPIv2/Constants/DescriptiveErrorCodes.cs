@@ -10,6 +10,7 @@ namespace MouthfeelAPIv2.Constants
         public static string CommentMissingBody = "COMMENT_MISSING_BODY";
         public static string CommentDoesNotExist = "COMMENT_DOES_NOT_EXIST";
 
+        public static string AttributeDoesNotExist = "ATTRIBUTE_DOES_NOT_EXIST";
         public static string FlavorDoesNotExist = "FLAVOR_DOES_NOT_EXIST";
         public static string MiscellaneousDoesNotExist = "MISCELLANEOUS_DOES_NOT_EXIST";
         public static string TextureDoesNotExist = "TEXTURE_DOES_NOT_EXIST";
